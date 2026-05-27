@@ -2,10 +2,9 @@ import axios from 'axios'
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 
-// Web uses localhost (dev server), native uses the LAN IP + port 8000 (artisan serve)
 const API_URL = Platform.OS === 'web'
   ? 'http://ai-companion.test/api'
-  : 'http://192.168.2.35:8000/api'
+  : 'http://134.122.21.84/api'
 
 const api = axios.create({
   baseURL: API_URL,
