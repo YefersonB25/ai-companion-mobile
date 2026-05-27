@@ -1,17 +1,29 @@
 {
   "expo": {
-    "name": "ai-companion-mobile",
+    "name": "AI Companion",
     "slug": "ai-companion-mobile",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "scheme": "ai-companion",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aicompanion.mobile",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.aicompanion.mobile",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#6366f1",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -19,7 +31,14 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ai-companion-mobile"
+    },
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
