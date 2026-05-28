@@ -88,6 +88,43 @@ export default function SettingsScreen() {
           ))}
         </View>
 
+        {/* Briefing diario */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Briefing diario</Text>
+          <Text style={styles.rowDesc}>
+            Tu asistente te envía cada mañana un resumen personalizado: clima, recordatorios y tu día.
+          </Text>
+          <View style={styles.row}>
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Activar briefing</Text>
+              <Text style={styles.rowDesc}>Recibe tu briefing cada mañana</Text>
+            </View>
+            <Switch
+              value={!!settings.briefing_enabled}
+              onValueChange={(v) => update('briefing_enabled', v)}
+              trackColor={{ false: '#e2e8f0', true: '#a5b4fc' }}
+              thumbColor={settings.briefing_enabled ? '#6366f1' : '#fff'}
+            />
+          </View>
+          {settings.briefing_enabled && (
+            <>
+              <Input
+                label="Hora de envío (HH:MM)"
+                value={settings.briefing_time ?? '08:00'}
+                onChangeText={(v) => update('briefing_time', v)}
+                placeholder="08:00"
+                keyboardType="numeric"
+              />
+              <Input
+                label="Ciudad para el clima"
+                value={settings.briefing_city ?? ''}
+                onChangeText={(v) => update('briefing_city', v)}
+                placeholder="Ej: Bogotá, Madrid, Miami..."
+              />
+            </>
+          )}
+        </View>
+
         {/* Persona */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Persona del asistente</Text>

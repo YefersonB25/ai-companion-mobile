@@ -60,4 +60,7 @@ export interface UserSetting {
   memory_enabled: boolean
   stream_responses: boolean
   persona: { name?: string; prompt?: string } | null
+  briefing_enabled: boolean
+  briefing_time: string
+  briefing_city: string | null
 }
