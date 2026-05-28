@@ -88,6 +88,15 @@ export default function SettingsScreen() {
           ))}
         </View>
 
+        {/* Mi Perfil */}
+        <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(app)/profile')}>
+          <View>
+            <Text style={styles.profileBtnTitle}>👤  Mi Perfil personal</Text>
+            <Text style={styles.profileBtnDesc}>Cuéntale a tu asistente sobre tu vida, salud, rutinas y metas</Text>
+          </View>
+          <Text style={styles.profileBtnArrow}>›</Text>
+        </TouchableOpacity>
+
         {/* Briefing diario */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Briefing diario</Text>
@@ -196,6 +205,13 @@ const styles = StyleSheet.create({
     fontSize: 14, color: '#1e293b', backgroundColor: '#fff',
     minHeight: 100,
   },
+  profileBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#eef2ff', borderRadius: 16, padding: 16, gap: 12,
+  },
+  profileBtnTitle: { fontSize: 15, fontWeight: '700', color: '#4338ca' },
+  profileBtnDesc:  { fontSize: 12, color: '#6366f1', marginTop: 2 },
+  profileBtnArrow: { fontSize: 24, color: '#6366f1', fontWeight: '300' },
   logoutBtn: {
     alignItems: 'center', paddingVertical: 14,
     borderRadius: 12, borderWidth: 1.5, borderColor: '#fecdd3',

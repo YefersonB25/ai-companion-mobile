@@ -68,6 +68,8 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />,
         }}
       />
+      {/* Perfil: accesible via navegación desde Settings, no en la tab bar */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   )
 }
