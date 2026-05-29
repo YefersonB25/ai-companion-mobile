@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import {
   View, Text, ScrollView, StyleSheet,
-  TouchableOpacity, Alert,
+  TouchableOpacity, Alert, StatusBar,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '@/store/auth'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { C } from '@/lib/theme'
 
 export default function RegisterScreen() {
   const [name, setName] = useState('')
@@ -25,15 +27,22 @@ export default function RegisterScreen() {
       await register(name, email, password)
       router.replace('/(app)')
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      Alert.alert('Error', msg ?? 'No se pudo crear la cuenta.')
+      const res = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } }, message?: string })
+      const fieldErr = res?.response?.data?.errors
+      const firstErr = fieldErr ? Object.values(fieldErr)[0]?.[0] : null
+      const msg = firstErr ?? res?.response?.data?.message ?? `No se pudo conectar con el servidor. (${res?.message ?? 'error desconocido'})`
+      Alert.alert('Error', msg)
     }
   }
 
   return (
     <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <View style={styles.logo}>
+            <Ionicons name="sparkles" size={32} color="#fff" />
+          </View>
           <Text style={styles.title}>Crea tu cuenta</Text>
           <Text style={styles.subtitle}>Tu asistente personal te espera</Text>
         </View>
@@ -63,7 +72,7 @@ export default function RegisterScreen() {
           />
         </View>
 
-        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+        <TouchableOpacity onPress={() => router.push('/(auth)/login')} activeOpacity={0.7}>
           <Text style={styles.link}>
             ¿Ya tienes cuenta? <Text style={styles.linkBold}>Inicia sesión</Text>
           </Text>
@@ -74,15 +83,20 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:     { flex: 1, backgroundColor: '#f8fafc' },
-  scroll:   { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 24 },
-  header:   { alignItems: 'center', gap: 8 },
-  title:    { fontSize: 28, fontWeight: '700', color: '#1e293b' },
-  subtitle: { fontSize: 15, color: '#64748b' },
-  card: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 24, gap: 16,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 20, elevation: 3,
+  safe:   { flex: 1, backgroundColor: C.bg },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 28 },
+  logoContainer: { alignItems: 'center', gap: 12 },
+  logo: {
+    width: 72, height: 72, borderRadius: 20,
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
   },
-  link:     { textAlign: 'center', color: '#64748b', fontSize: 14 },
-  linkBold: { color: '#6366f1', fontWeight: '600' },
+  title:    { fontSize: 28, fontWeight: '700', color: C.textPrimary, textAlign: 'center' },
+  subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 22 },
+  card: {
+    backgroundColor: C.surface, borderRadius: 20,
+    padding: 24, gap: 16,
+    borderWidth: 1, borderColor: C.border,
+  },
+  link:     { textAlign: 'center', color: C.textSecondary, fontSize: 14 },
+  linkBold: { color: C.primary, fontWeight: '600' },
 })

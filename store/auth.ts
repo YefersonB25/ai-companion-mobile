@@ -39,18 +39,26 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (email, password) => {
     set({ isLoading: true })
-    const { data } = await api.post('/auth/login', { email, password })
-    await SecureStore.setItemAsync('token', data.token)
-    set({ user: data.user, token: data.token, isLoading: false })
+    try {
+      const { data } = await api.post('/auth/login', { email, password })
+      await SecureStore.setItemAsync('token', data.token)
+      set({ user: data.user, token: data.token })
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
   register: async (name, email, password) => {
     set({ isLoading: true })
-    const { data } = await api.post('/auth/register', {
-      name, email, password, password_confirmation: password,
-    })
-    await SecureStore.setItemAsync('token', data.token)
-    set({ user: data.user, token: data.token, isLoading: false })
+    try {
+      const { data } = await api.post('/auth/register', {
+        name, email, password, password_confirmation: password,
+      })
+      await SecureStore.setItemAsync('token', data.token)
+      set({ user: data.user, token: data.token })
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
   logout: async () => {

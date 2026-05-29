@@ -4,7 +4,7 @@ import { Platform } from 'react-native'
 
 const API_URL = Platform.OS === 'web'
   ? 'http://ai-companion.test/api'
-  : 'http://134.122.21.84/api'
+  : 'https://ai.omnirepair.online/api'
 
 const api = axios.create({
   baseURL: API_URL,

@@ -1,38 +1,51 @@
 import { useRef, useEffect, useState } from 'react'
 import {
-  View, FlatList, Text, StyleSheet, TouchableOpacity,
+  View, FlatList, Text, StyleSheet, TouchableOpacity, StatusBar,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import * as Speech from 'expo-speech'
+import { textForTts } from '@/lib/textForTts'
+import { useRouter, useFocusEffect } from 'expo-router'
+import { useCallback } from 'react'
 import { useChatStore } from '@/store/chat'
 import { useAuthStore } from '@/store/auth'
 import MessageBubble from '@/components/chat/MessageBubble'
 import ChatInput from '@/components/chat/ChatInput'
 import { Message } from '@/types'
-import api from '@/lib/api'
 import { AiProvider } from '@/types'
+import api from '@/lib/api'
+import { C } from '@/lib/theme'
 
 const SUGGESTIONS = [
-  '¿Qué puedes hacer por mí?',
-  'Ayúdame a planificar mi semana',
-  '¿Qué me recomiendas para cenar?',
-  'Quiero planificar unas vacaciones',
+  { icon: 'search-outline',      text: '¿Qué pasó hoy en el mundo?' },
+  { icon: 'partly-sunny-outline', text: '¿Cómo está el clima en mi ciudad?' },
+  { icon: 'calendar-outline',    text: 'Ayúdame a planificar mi semana' },
+  { icon: 'airplane-outline',    text: 'Quiero planificar unas vacaciones' },
 ]
 
 export default function ChatScreen() {
+  const router = useRouter()
   const { messages, isStreaming, sendMessage, activeConversation, createConversation } = useChatStore()
   const { user } = useAuthStore()
   const [activeProvider, setActiveProvider] = useState<AiProvider | null>(null)
+  const [providersChecked, setProvidersChecked] = useState(false)
   const [ttsEnabled, setTtsEnabled] = useState(true)
   const listRef = useRef<FlatList>(null)
   const wasStreaming = useRef(false)
 
-  useEffect(() => {
+  const loadProvider = useCallback(() => {
     api.get('/providers').then(({ data }) => {
       const def = (data as AiProvider[]).find((p) => p.is_default && p.is_active)
-      setActiveProvider(def ?? null)
-    }).catch(() => {})
+        ?? (data as AiProvider[]).find((p) => p.is_active)
+        ?? null
+      setActiveProvider(def)
+      setProvidersChecked(true)
+    }).catch(() => setProvidersChecked(true))
   }, [])
+
+  // Re-check provider when returning to chat (e.g. after configuring one)
+  useFocusEffect(useCallback(() => { loadProvider() }, [loadProvider]))
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -40,25 +53,26 @@ export default function ChatScreen() {
     }
   }, [messages])
 
-  // TTS: speak AI response when streaming ends
   useEffect(() => {
     if (wasStreaming.current && !isStreaming && ttsEnabled) {
       const last = messages[messages.length - 1]
       if (last?.role === 'assistant' && last.content) {
-        Speech.stop()
-        Speech.speak(last.content, { language: 'es-ES', rate: 0.95, pitch: 1.0 })
+        const spoken = textForTts(last.content)
+        if (spoken) {
+          Speech.stop()
+          Speech.speak(spoken, { language: 'es-ES', rate: 0.95, pitch: 1.0 })
+        }
       }
     }
     wasStreaming.current = isStreaming
   }, [isStreaming, ttsEnabled, messages])
 
-  // Stop TTS when unmounting
   useEffect(() => () => { Speech.stop() }, [])
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, opts?: { viaVoice?: boolean }) => {
     Speech.stop()
     if (!activeConversation) await createConversation()
-    sendMessage(text)
+    sendMessage(text, opts)
   }
 
   const toggleTts = () => {
@@ -73,26 +87,37 @@ export default function ChatScreen() {
     />
   )
 
+  const firstName = user?.name?.split(' ')[0] ?? 'Usuario'
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0]} 👋</Text>
-          <Text style={styles.subGreeting}>
-            {activeProvider
-              ? `${activeProvider.provider} · ${activeProvider.model}`
-              : 'Configura un proveedor de IA'}
-          </Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.logoMark}>
+            <Ionicons name="sparkles" size={16} color={C.primary} />
+          </View>
+          <View>
+            <Text style={styles.greeting}>Hola, {firstName}</Text>
+            <Text style={styles.providerBadge}>
+              {activeProvider
+                ? `${activeProvider.provider} · ${activeProvider.model}`
+                : 'Sin proveedor activo'}
+            </Text>
+          </View>
         </View>
         <View style={styles.headerActions}>
-          {/* TTS toggle */}
           <TouchableOpacity style={styles.iconBtn} onPress={toggleTts} activeOpacity={0.7}>
-            <Text style={styles.iconBtnText}>{ttsEnabled ? '🔊' : '🔇'}</Text>
+            <Ionicons
+              name={ttsEnabled ? 'volume-high-outline' : 'volume-mute-outline'}
+              size={18}
+              color={ttsEnabled ? C.primary : C.textSecondary}
+            />
           </TouchableOpacity>
-          {/* New conversation */}
           <TouchableOpacity style={styles.newBtn} onPress={createConversation} activeOpacity={0.8}>
-            <Text style={styles.newBtnText}>+</Text>
+            <Ionicons name="add" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -100,15 +125,47 @@ export default function ChatScreen() {
       {/* Messages or welcome */}
       {messages.length === 0 ? (
         <View style={styles.welcome}>
-          <Text style={styles.welcomeEmoji}>🧠</Text>
-          <Text style={styles.welcomeTitle}>¿En qué puedo ayudarte?</Text>
-          <View style={styles.suggestions}>
-            {SUGGESTIONS.map((s) => (
-              <TouchableOpacity key={s} style={styles.suggestion} onPress={() => handleSend(s)}>
-                <Text style={styles.suggestionText}>{s}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.welcomeIcon}>
+            <Ionicons name="sparkles" size={36} color={C.primary} />
           </View>
+          <Text style={styles.welcomeTitle}>¿En qué puedo ayudarte?</Text>
+          <Text style={styles.welcomeSub}>Tu asistente personal está listo</Text>
+
+          {providersChecked && !activeProvider && (
+            <View style={styles.setupCard}>
+              <View style={styles.setupHeader}>
+                <Ionicons name="warning-outline" size={20} color={C.primary} />
+                <Text style={styles.setupTitle}>Configura tu IA para empezar</Text>
+              </View>
+              <Text style={styles.setupBody}>
+                Necesitas agregar un proveedor de IA (Gemini es gratis). Sin esto, las respuestas no funcionarán.
+              </Text>
+              <TouchableOpacity
+                style={styles.setupBtn}
+                onPress={() => router.push('/(app)/providers' as never)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="hardware-chip-outline" size={16} color="#fff" />
+                <Text style={styles.setupBtnText}>Configurar ahora</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {activeProvider && (
+            <View style={styles.suggestions}>
+              {SUGGESTIONS.map((s) => (
+                <TouchableOpacity
+                  key={s.text}
+                  style={styles.suggestion}
+                  onPress={() => handleSend(s.text)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name={s.icon as any} size={16} color={C.primary} />
+                  <Text style={styles.suggestionText}>{s.text}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
       ) : (
         <FlatList
@@ -127,34 +184,73 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: '#fff' },
+  safe: { flex: 1, backgroundColor: C.bg },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
+    paddingHorizontal: 18, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+    backgroundColor: C.surface,
   },
-  greeting:      { fontSize: 18, fontWeight: '700', color: '#1e293b' },
-  subGreeting:   { fontSize: 12, color: '#94a3b8', marginTop: 2 },
+  headerLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logoMark: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: C.primaryMuted,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  greeting:      { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+  providerBadge: { fontSize: 11, color: C.textSecondary, marginTop: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center',
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: C.surface2, alignItems: 'center', justifyContent: 'center',
   },
-  iconBtnText: { fontSize: 18 },
   newBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center',
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
   },
-  newBtnText: { color: '#fff', fontSize: 22, lineHeight: 24 },
+
   list:        { flex: 1 },
-  listContent: { paddingVertical: 8 },
-  welcome:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20 },
-  welcomeEmoji:   { fontSize: 64 },
-  welcomeTitle:   { fontSize: 22, fontWeight: '700', color: '#1e293b', textAlign: 'center' },
-  suggestions:    { width: '100%', gap: 10 },
-  suggestion: {
-    backgroundColor: '#f8fafc', borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: '#e2e8f0',
+  listContent: { paddingVertical: 12 },
+
+  welcome: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 24, gap: 12,
   },
-  suggestionText: { fontSize: 14, color: '#475569', textAlign: 'center' },
+  welcomeIcon: {
+    width: 72, height: 72, borderRadius: 24,
+    backgroundColor: C.primaryMuted,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4,
+  },
+  welcomeTitle: { fontSize: 22, fontWeight: '700', color: C.textPrimary, textAlign: 'center' },
+  welcomeSub:   { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 8 },
+
+  suggestions: { width: '100%', gap: 8 },
+  suggestion: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.surface2, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 13,
+    borderWidth: 1, borderColor: C.border,
+  },
+  suggestionText: { fontSize: 14, color: C.textPrimary, flex: 1 },
+
+  setupCard: {
+    width: '100%',
+    backgroundColor: C.primaryMuted,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: C.primary,
+    gap: 10,
+    marginTop: 4,
+  },
+  setupHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  setupTitle: { color: C.textPrimary, fontSize: 15, fontWeight: '700' },
+  setupBody: { color: C.textSecondary, fontSize: 13, lineHeight: 19 },
+  setupBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: C.primary, paddingVertical: 11, borderRadius: 12, marginTop: 4,
+  },
+  setupBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 })

@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { Stack, useRouter } from 'expo-router'
+import { Linking } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import * as Notifications from 'expo-notifications'
 import { useAuthStore } from '@/store/auth'
 import { syncDeviceToken } from '@/lib/notifications'
 import { useAppUpdate } from '@/lib/useAppUpdate'
+import { syncDailyBriefing } from '@/lib/localNotifications'
 import UpdateModal from '@/components/ui/UpdateModal'
+import { useVoiceTrigger } from '@/store/voiceTrigger'
 import '../global.css'
 
 export default function RootLayout() {
@@ -20,10 +23,25 @@ export default function RootLayout() {
 
   useEffect(() => { hydrate() }, [hydrate])
 
-  // Register push token once logged in
+  // Register push token + schedule daily briefing notification once logged in
   useEffect(() => {
-    if (token) syncDeviceToken()
+    if (token) {
+      syncDeviceToken()
+      syncDailyBriefing()
+    }
   }, [token])
+
+  // Detect launches via deep link ai-companion://voice (home shortcut, assist intent target)
+  useEffect(() => {
+    const checkVoiceLaunch = (url: string | null) => {
+      if (url && url.includes('voice')) {
+        useVoiceTrigger.getState().trigger()
+      }
+    }
+    Linking.getInitialURL().then(checkVoiceLaunch)
+    const sub = Linking.addEventListener('url', (evt) => checkVoiceLaunch(evt.url))
+    return () => sub.remove()
+  }, [])
 
   // Handle notification tap — navigate to the relevant conversation
   useEffect(() => {
@@ -35,6 +53,12 @@ export default function RootLayout() {
       const data = response.notification.request.content.data as Record<string, unknown>
       if (data?.conversation_id) {
         router.push(`/(app)/${data.conversation_id}` as never)
+      } else if (data?.type === 'briefing') {
+        // Open chat and let the chat screen pick up the pending briefing flag
+        router.push('/(app)' as never)
+        useVoiceTrigger.setState({ pending: false }) // ensure mic doesn't auto-start
+      } else if (data?.type === 'reminder') {
+        router.push('/(app)' as never)
       }
     })
 

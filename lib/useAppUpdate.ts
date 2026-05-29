@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AppState, AppStateStatus, Platform } from 'react-native'
-import Constants from 'expo-constants'
+import * as Application from 'expo-application'
 import api from './api'
 
 export interface AppUpdateInfo {
@@ -16,11 +16,9 @@ export function useAppUpdate() {
 
   const check = async () => {
     try {
-      const versionCode =
-        Platform.OS === 'android'
-          ? (Constants.expoConfig?.android?.versionCode ?? 1)
-          : parseInt(Constants.expoConfig?.ios?.buildNumber ?? '1', 10)
-
+      // expo-application reads the native build values (always reliable in standalone APK).
+      const nativeBuild = Application.nativeBuildVersion ?? '1'
+      const versionCode = parseInt(nativeBuild, 10) || 1
       const platform = Platform.OS === 'ios' ? 'ios' : 'android'
 
       const { data } = await api.get('/app/version', {

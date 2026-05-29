@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react'
 import {
   View, Text, FlatList, StyleSheet,
-  TouchableOpacity, Alert, Switch, TextInput, Modal, ScrollView,
+  TouchableOpacity, Alert, Switch, TextInput, Modal, ScrollView, Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import api from '@/lib/api'
 import { AiProvider } from '@/types'
 import Button from '@/components/ui/Button'
+
+const PROVIDER_KEY_URLS: Record<string, { url: string; label: string; isFree: boolean }> = {
+  claude:   { url: 'https://console.anthropic.com/settings/keys',     label: 'console.anthropic.com',     isFree: false },
+  openai:   { url: 'https://platform.openai.com/api-keys',            label: 'platform.openai.com',       isFree: false },
+  deepseek: { url: 'https://platform.deepseek.com/api_keys',          label: 'platform.deepseek.com',     isFree: false },
+  gemini:   { url: 'https://aistudio.google.com/apikey',              label: 'aistudio.google.com',       isFree: true  },
+  mistral:  { url: 'https://console.mistral.ai/api-keys',             label: 'console.mistral.ai',        isFree: false },
+}
 
 const PROVIDER_EMOJIS: Record<string, string> = {
   claude: '🟣', openai: '🟢', deepseek: '🔵', gemini: '🔶', mistral: '🔴',
@@ -23,7 +31,7 @@ const SUPPORTED = [
 export default function ProvidersScreen() {
   const [providers, setProviders] = useState<AiProvider[]>([])
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ provider: 'claude', model: 'claude-sonnet-4-6', api_key: '' })
+  const [form, setForm] = useState({ provider: 'gemini', model: 'gemini-2.5-flash', api_key: '' })
   const [saving, setSaving] = useState(false)
 
   const load = async () => {
@@ -186,6 +194,19 @@ export default function ProvidersScreen() {
               autoCapitalize="none"
             />
 
+            {PROVIDER_KEY_URLS[form.provider] && (
+              <TouchableOpacity
+                style={styles.helpLink}
+                onPress={() => Linking.openURL(PROVIDER_KEY_URLS[form.provider].url)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.helpText}>
+                  {PROVIDER_KEY_URLS[form.provider].isFree ? '✨ Gratis · ' : '💳 De pago · '}
+                  Generar key en {PROVIDER_KEY_URLS[form.provider].label} ↗
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <Button label={saving ? 'Guardando...' : 'Guardar proveedor'} onPress={handleSave} loading={saving} size="lg" />
           </ScrollView>
         </SafeAreaView>
@@ -257,4 +278,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, color: '#1e293b', backgroundColor: '#f8fafc',
   },
+  helpLink: {
+    paddingVertical: 8, paddingHorizontal: 4,
+    marginTop: -8, marginBottom: 8,
+  },
+  helpText: { fontSize: 12, color: '#6366f1', textDecorationLine: 'underline' },
 })

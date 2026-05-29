@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View, TextInput, TouchableOpacity, StyleSheet,
-  Text, Platform, KeyboardAvoidingView, ActivityIndicator,
+  Platform, KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition'
+import { C } from '@/lib/theme'
+import { useVoiceTrigger } from '@/store/voiceTrigger'
 
 interface Props {
-  onSend: (text: string) => void
+  onSend: (text: string, opts?: { viaVoice?: boolean }) => void
   isStreaming: boolean
 }
 
@@ -18,34 +21,33 @@ export default function ChatInput({ onSend, isStreaming }: Props) {
   const [recording, setRecording] = useState(false)
   const [interimText, setInterimText] = useState('')
 
-  // --- STT events ---
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = event.results[0]?.transcript ?? ''
     if (event.isFinal) {
       setRecording(false)
       setInterimText('')
-      if (transcript.trim()) onSend(transcript.trim())
+      if (transcript.trim()) onSend(transcript.trim(), { viaVoice: true })
     } else {
       setInterimText(transcript)
     }
   })
 
-  useSpeechRecognitionEvent('end', () => {
-    setRecording(false)
-    setInterimText('')
-  })
+  useSpeechRecognitionEvent('end', () => { setRecording(false); setInterimText('') })
+  useSpeechRecognitionEvent('error', () => { setRecording(false); setInterimText('') })
 
-  useSpeechRecognitionEvent('error', () => {
-    setRecording(false)
-    setInterimText('')
-  })
-
-  // --- Handlers ---
   const handleSend = () => {
     const trimmed = text.trim()
     if (!trimmed || isStreaming) return
     onSend(trimmed)
     setText('')
+  }
+
+  const startRecording = async () => {
+    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
+    if (!granted) return
+    setText('')
+    setRecording(true)
+    ExpoSpeechRecognitionModule.start({ lang: 'es-ES', interimResults: true, continuous: false })
   }
 
   const toggleRecording = async () => {
@@ -55,21 +57,33 @@ export default function ChatInput({ onSend, isStreaming }: Props) {
       setInterimText('')
       return
     }
-    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
-    if (!granted) return
-    setText('')
-    setRecording(true)
-    ExpoSpeechRecognitionModule.start({ lang: 'es-ES', interimResults: true, continuous: false })
+    await startRecording()
   }
 
-  const displayText = recording ? interimText : text
-  const placeholder = recording ? 'Escuchando...' : 'Escribe o habla...'
+  // Auto-start dictation when launched via deep link (ai-companion://voice) or shortcut
+  const voicePending = useVoiceTrigger((s) => s.pending)
+  const clearVoiceTrigger = useVoiceTrigger((s) => s.clear)
+  useEffect(() => {
+    if (voicePending && !recording && !isStreaming) {
+      clearVoiceTrigger()
+      // Small delay so screen mounts fully before mic activates
+      setTimeout(startRecording, 350)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voicePending, isStreaming])
+
+  const displayText  = recording ? interimText : text
+  const placeholder  = recording ? 'Escuchando...' : 'Escribe o habla...'
+  const canSend      = !recording && !!text.trim() && !isStreaming
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
       <View style={styles.container}>
-        <View style={[styles.inputRow, recording && styles.inputRowRecording]}>
-          {/* Mic button */}
+        <View style={[styles.row, recording && styles.rowRecording]}>
+          {/* Mic */}
           <TouchableOpacity
             style={[styles.micBtn, recording && styles.micBtnActive]}
             onPress={toggleRecording}
@@ -78,7 +92,7 @@ export default function ChatInput({ onSend, isStreaming }: Props) {
           >
             {recording
               ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.micIcon}>🎙️</Text>
+              : <Ionicons name="mic-outline" size={18} color={recording ? '#fff' : C.textSecondary} />
             }
           </TouchableOpacity>
 
@@ -87,7 +101,7 @@ export default function ChatInput({ onSend, isStreaming }: Props) {
             value={displayText}
             onChangeText={recording ? undefined : setText}
             placeholder={placeholder}
-            placeholderTextColor={recording ? '#6366f1' : '#94a3b8'}
+            placeholderTextColor={recording ? C.primary : C.textSecondary}
             multiline
             maxLength={4000}
             editable={!isStreaming && !recording}
@@ -96,15 +110,18 @@ export default function ChatInput({ onSend, isStreaming }: Props) {
             blurOnSubmit={false}
           />
 
-          {/* Send button — hidden while recording */}
+          {/* Send / Streaming indicator */}
           {!recording && (
             <TouchableOpacity
-              style={[styles.sendBtn, (!text.trim() || isStreaming) && styles.sendBtnDisabled]}
+              style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
               onPress={handleSend}
-              disabled={!text.trim() || isStreaming}
+              disabled={!canSend}
               activeOpacity={0.8}
             >
-              <Text style={styles.sendIcon}>{isStreaming ? '⏸' : '➤'}</Text>
+              {isStreaming
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Ionicons name="arrow-up" size={18} color="#fff" />
+              }
             </TouchableOpacity>
           )}
         </View>
@@ -116,52 +133,34 @@ export default function ChatInput({ onSend, isStreaming }: Props) {
 const styles = StyleSheet.create({
   container: {
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
+    borderTopColor: C.border,
+    backgroundColor: C.surface,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    paddingBottom: Platform.OS === 'ios' ? 26 : 10,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: '#f8fafc',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    paddingLeft: 8,
-    paddingRight: 6,
-    paddingVertical: 6,
-    gap: 6,
+  row: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
+    backgroundColor: C.surface2,
+    borderRadius: 18, borderWidth: 1.5, borderColor: C.border,
+    paddingLeft: 6, paddingRight: 6, paddingVertical: 6,
   },
-  inputRowRecording: {
-    borderColor: '#6366f1',
-    backgroundColor: '#eef2ff',
+  rowRecording: {
+    borderColor: C.primary,
+    backgroundColor: C.primaryMuted,
   },
   input: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1e293b',
-    maxHeight: 120,
-    paddingVertical: 4,
+    flex: 1, fontSize: 15, color: C.textPrimary,
+    maxHeight: 120, paddingVertical: 4, paddingHorizontal: 4,
   },
   micBtn: {
-    width: 34, height: 34,
-    borderRadius: 17,
-    backgroundColor: '#e2e8f0',
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
+    width: 36, height: 36, borderRadius: 12,
+    backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center',
   },
-  micBtnActive: {
-    backgroundColor: '#6366f1',
-  },
-  micIcon: { fontSize: 16 },
+  micBtnActive: { backgroundColor: C.primary },
   sendBtn: {
-    width: 36, height: 36,
-    borderRadius: 18,
-    backgroundColor: '#6366f1',
-    alignItems: 'center', justifyContent: 'center',
+    width: 36, height: 36, borderRadius: 12,
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
   },
-  sendBtnDisabled: { backgroundColor: '#c7d2fe' },
-  sendIcon: { color: '#fff', fontSize: 16 },
+  sendBtnDisabled: { backgroundColor: C.primaryMuted },
 })

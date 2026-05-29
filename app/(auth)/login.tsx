@@ -1,37 +1,47 @@
 import { useState } from 'react'
 import {
   View, Text, ScrollView, StyleSheet,
-  TouchableOpacity, Alert,
+  TouchableOpacity, Alert, StatusBar,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '@/store/auth'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { C } from '@/lib/theme'
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const { login, isLoading } = useAuthStore()
+  const { login, isLoading }    = useAuthStore()
   const router = useRouter()
 
   const handleLogin = async () => {
-    if (!email || !password) return
+    if (!email || !password) {
+      Alert.alert('Error', 'Ingresa tu email y contraseña.')
+      return
+    }
     try {
       await login(email, password)
       router.replace('/(app)')
-    } catch {
-      Alert.alert('Error', 'Credenciales incorrectas. Verifica tu email y contraseña.')
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } }, message?: string })
+      const apiMsg = res?.response?.data?.errors?.email?.[0]
+        ?? res?.response?.data?.message
+      const msg = apiMsg ?? `No se pudo conectar con el servidor. (${res?.message ?? 'error desconocido'})`
+      Alert.alert('Error', msg)
     }
   }
 
   return (
     <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logo}>
-            <Text style={styles.logoText}>🧠</Text>
+            <Ionicons name="sparkles" size={36} color="#fff" />
           </View>
           <Text style={styles.title}>AI Companion</Text>
           <Text style={styles.subtitle}>Tu asistente personal de inteligencia artificial</Text>
@@ -62,7 +72,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+        <TouchableOpacity onPress={() => router.push('/(auth)/register')} activeOpacity={0.7}>
           <Text style={styles.link}>
             ¿No tienes cuenta? <Text style={styles.linkBold}>Regístrate</Text>
           </Text>
@@ -73,22 +83,20 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: '#f8fafc' },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 24 },
+  safe:   { flex: 1, backgroundColor: C.bg },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 28 },
   logoContainer: { alignItems: 'center', gap: 12 },
   logo: {
-    width: 72, height: 72, borderRadius: 20,
-    backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center',
+    width: 80, height: 80, borderRadius: 24,
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
   },
-  logoText: { fontSize: 36 },
-  title:    { fontSize: 28, fontWeight: '700', color: '#1e293b', textAlign: 'center' },
-  subtitle: { fontSize: 15, color: '#64748b', textAlign: 'center', lineHeight: 22 },
+  title:    { fontSize: 28, fontWeight: '700', color: C.textPrimary, textAlign: 'center' },
+  subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 22 },
   card: {
-    backgroundColor: '#fff', borderRadius: 20,
+    backgroundColor: C.surface, borderRadius: 20,
     padding: 24, gap: 16,
-    shadowColor: '#000', shadowOpacity: 0.05,
-    shadowRadius: 20, elevation: 3,
+    borderWidth: 1, borderColor: C.border,
   },
-  link:     { textAlign: 'center', color: '#64748b', fontSize: 14 },
-  linkBold: { color: '#6366f1', fontWeight: '600' },
+  link:     { textAlign: 'center', color: C.textSecondary, fontSize: 14 },
+  linkBold: { color: C.primary, fontWeight: '600' },
 })
