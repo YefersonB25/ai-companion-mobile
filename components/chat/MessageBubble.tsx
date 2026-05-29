@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet, Image } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Message } from '@/types'
 import { C } from '@/lib/theme'
@@ -56,6 +56,13 @@ export default function MessageBubble({ message, isStreaming }: Props) {
 
       {/* Bubble */}
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
+        {message.image_url ? (
+          <Image
+            source={{ uri: message.image_url }}
+            style={styles.messageImage}
+            resizeMode="cover"
+          />
+        ) : null}
         <MarkdownText text={message.content} isUser={isUser} />
         {isStreaming && (
           <Text style={styles.cursor}>▌</Text>
@@ -105,4 +112,10 @@ const styles = StyleSheet.create({
 
   cursor: { color: C.primary, fontSize: 15 },
   meta:   { fontSize: 10, color: C.textSecondary, marginTop: 5 },
+  messageImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
 })

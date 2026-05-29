@@ -30,6 +30,7 @@ export interface Message {
   conversation_id: number
   role: 'user' | 'assistant' | 'system'
   content: string
+  image_url?: string | null
   provider: string | null
   model: string | null
   input_tokens: number
@@ -46,6 +47,9 @@ export interface MemoryNode {
   importance: number
   parent_id: number | null
   attributes: Record<string, unknown> | null
+  updated_at?: string | null
+  last_accessed_at?: string | null
+  access_count?: number
 }
 
 export interface MindMapData {

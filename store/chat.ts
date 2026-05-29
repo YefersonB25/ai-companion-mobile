@@ -15,6 +15,7 @@ interface ChatState {
   loadConversations: () => Promise<void>
   createConversation: () => Promise<Conversation>
   selectConversation: (id: number) => Promise<void>
+  deleteConversation: (id: number) => Promise<void>
   sendMessage: (content: string, opts?: { viaVoice?: boolean }) => Promise<void>
   appendChunk: (chunk: string) => void
   setTtsEnabled: (v: boolean) => void
@@ -46,6 +47,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   selectConversation: async (id) => {
     const { data } = await api.get(`/conversations/${id}`)
     set({ activeConversation: data, messages: data.messages ?? [] })
+  },
+
+  deleteConversation: async (id) => {
+    await api.delete(`/conversations/${id}`)
+    set((s) => ({
+      conversations: s.conversations.filter((c) => c.id !== id),
+      activeConversation: s.activeConversation?.id === id ? null : s.activeConversation,
+      messages: s.activeConversation?.id === id ? [] : s.messages,
+    }))
   },
 
   sendMessage: async (content, opts) => {

@@ -31,6 +31,7 @@ export default function ChatScreen() {
   const [activeProvider, setActiveProvider] = useState<AiProvider | null>(null)
   const [providersChecked, setProvidersChecked] = useState(false)
   const [ttsEnabled, setTtsEnabled] = useState(true)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const listRef = useRef<FlatList>(null)
   const wasStreaming = useRef(false)
 
@@ -60,23 +61,50 @@ export default function ChatScreen() {
         const spoken = textForTts(last.content)
         if (spoken) {
           Speech.stop()
-          Speech.speak(spoken, { language: 'es-ES', rate: 0.95, pitch: 1.0 })
+          setIsSpeaking(true)
+          Speech.speak(spoken, {
+            language: 'es-ES',
+            rate: 0.95,
+            pitch: 1.0,
+            onDone: () => setIsSpeaking(false),
+            onStopped: () => setIsSpeaking(false),
+            onError: () => setIsSpeaking(false),
+          })
         }
       }
     }
     wasStreaming.current = isStreaming
   }, [isStreaming, ttsEnabled, messages])
 
-  useEffect(() => () => { Speech.stop() }, [])
+  useEffect(() => () => { Speech.stop(); setIsSpeaking(false) }, [])
 
-  const handleSend = async (text: string, opts?: { viaVoice?: boolean }) => {
+  const handleSend = async (text: string, opts?: { viaVoice?: boolean; imageUri?: string | null }) => {
     Speech.stop()
+    setIsSpeaking(false)
     if (!activeConversation) await createConversation()
-    sendMessage(text, opts)
+
+    if (opts?.imageUri) {
+      // Send as multipart/form-data when an image is attached
+      const conv = activeConversation ?? await (async () => { await createConversation(); return activeConversation })()
+      if (!conv) { sendMessage(text, opts); return }
+      const form = new FormData()
+      form.append('content', text)
+      form.append('image', { uri: opts.imageUri, name: 'photo.jpg', type: 'image/jpeg' } as any)
+      try {
+        await api.post(`/conversations/${conv.id}/messages`, form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      } catch (e) {
+        console.warn('Image upload failed, falling back to text only', e)
+        sendMessage(text, opts)
+      }
+    } else {
+      sendMessage(text, opts)
+    }
   }
 
   const toggleTts = () => {
-    if (ttsEnabled) Speech.stop()
+    if (ttsEnabled) { Speech.stop(); setIsSpeaking(false) }
     setTtsEnabled((v) => !v)
   }
 
@@ -178,7 +206,7 @@ export default function ChatScreen() {
         />
       )}
 
-      <ChatInput onSend={handleSend} isStreaming={isStreaming} />
+      <ChatInput onSend={handleSend} isStreaming={isStreaming} isSpeaking={isSpeaking} />
     </SafeAreaView>
   )
 }
