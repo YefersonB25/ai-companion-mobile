@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import * as Speech from 'expo-speech'
 import { textForTts } from '@/lib/textForTts'
-import { useRouter, useFocusEffect } from 'expo-router'
+import { useRouter, useFocusEffect, Link } from 'expo-router'
 import { useCallback } from 'react'
 import { useChatStore } from '@/store/chat'
 import { useAuthStore } from '@/store/auth'
@@ -144,6 +144,11 @@ export default function ChatScreen() {
               color={ttsEnabled ? C.primary : C.textSecondary}
             />
           </TouchableOpacity>
+          <Link href="/(app)/help" asChild>
+            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
+              <Ionicons name="help-circle-outline" size={20} color={C.textSecondary} />
+            </TouchableOpacity>
+          </Link>
           <TouchableOpacity style={styles.newBtn} onPress={createConversation} activeOpacity={0.8}>
             <Ionicons name="add" size={20} color="#fff" />
           </TouchableOpacity>
