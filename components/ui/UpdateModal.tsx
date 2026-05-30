@@ -1,5 +1,7 @@
-import { Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native'
+import { useState } from 'react'
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { AppUpdateInfo } from '@/lib/useAppUpdate'
+import { updateManager } from '@/lib/updateManager'
 
 interface Props {
   info: AppUpdateInfo
@@ -7,25 +9,44 @@ interface Props {
 }
 
 export default function UpdateModal({ info, onDismiss }: Props) {
-  const openDownload = () => {
-    if (info.download_url) Linking.openURL(info.download_url)
+  const [downloading, setDownloading] = useState(false)
+  const [started, setStarted]         = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+
+  const handleUpdate = async () => {
+    if (!info.download_url) return
+    setError(null)
+
+    if (updateManager.available) {
+      setDownloading(true)
+      try {
+        await updateManager.downloadAndInstall(info.download_url, info.version)
+        setStarted(true) // descarga iniciada — el usuario verá notificación al terminar
+      } catch (e: any) {
+        const msg: string = e?.message ?? 'Error desconocido'
+        if (msg.includes('PERMISSION_REQUIRED')) {
+          setError(msg)
+        } else {
+          setError(`Error: ${msg}`)
+        }
+      } finally {
+        setDownloading(false)
+      }
+    } else {
+      const { Linking } = require('react-native')
+      Linking.openURL(info.download_url)
+    }
   }
 
   return (
     <Modal transparent animationType="fade" statusBarTranslucent>
       <View className="flex-1 justify-center items-center bg-black/60 px-6">
         <View className="bg-white rounded-2xl w-full max-w-sm overflow-hidden">
-          {/* Header */}
           <View className="bg-indigo-600 px-6 pt-6 pb-4">
-            <Text className="text-white text-xl font-bold">
-              Actualización disponible
-            </Text>
-            <Text className="text-indigo-200 text-sm mt-1">
-              Versión {info.version}
-            </Text>
+            <Text className="text-white text-xl font-bold">Actualización disponible</Text>
+            <Text className="text-indigo-200 text-sm mt-1">Versión {info.version}</Text>
           </View>
 
-          {/* Changelog */}
           <ScrollView className="px-6 pt-4" style={{ maxHeight: 260 }}>
             <Text className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">
               ¿Qué hay de nuevo?
@@ -38,24 +59,44 @@ export default function UpdateModal({ info, onDismiss }: Props) {
             ))}
           </ScrollView>
 
-          {/* Actions */}
+          {error && (
+            <View className="mx-6 mt-3 bg-red-50 rounded-xl p-3 border border-red-200">
+              <Text className="text-red-600 text-xs">{error}</Text>
+            </View>
+          )}
+
           <View className="px-6 py-4 gap-2">
-            {info.download_url && (
+            {info.download_url && !started && (
               <Pressable
-                onPress={openDownload}
+                onPress={handleUpdate}
+                disabled={downloading}
                 className="bg-indigo-600 rounded-xl py-3 items-center active:opacity-80"
+                style={{ opacity: downloading ? 0.7 : 1 }}
               >
-                <Text className="text-white font-semibold text-base">
-                  Actualizar ahora
-                </Text>
+                {downloading ? (
+                  <View className="flex-row items-center gap-2">
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text className="text-white font-semibold text-base">Iniciando descarga...</Text>
+                  </View>
+                ) : (
+                  <Text className="text-white font-semibold text-base">
+                    {updateManager.available ? 'Descargar e instalar' : 'Actualizar ahora'}
+                  </Text>
+                )}
               </Pressable>
             )}
 
-            {!info.is_required && (
-              <Pressable
-                onPress={onDismiss}
-                className="py-3 items-center"
-              >
+            {started && (
+              <View className="bg-green-50 rounded-xl py-3 px-4 items-center border border-green-200">
+                <Text className="text-green-700 font-semibold text-base">✓ Descargando en segundo plano</Text>
+                <Text className="text-green-600 text-xs mt-1 text-center">
+                  Cuando termine verás una notificación. Tócala para instalar.
+                </Text>
+              </View>
+            )}
+
+            {!info.is_required && !downloading && (
+              <Pressable onPress={onDismiss} className="py-3 items-center">
                 <Text className="text-gray-400 text-sm">Recordarme después</Text>
               </Pressable>
             )}

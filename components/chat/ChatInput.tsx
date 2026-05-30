@@ -46,6 +46,7 @@ export default function ChatInput({ onSend, isStreaming, isSpeaking = false }: P
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = event.results[0]?.transcript ?? ''
     if (event.isFinal) {
+      ExpoSpeechRecognitionModule.abort()
       setRecording(false)
       setInterimText('')
       if (transcript.trim()) onSend(transcript.trim(), { viaVoice: true })
@@ -83,7 +84,7 @@ export default function ChatInput({ onSend, isStreaming, isSpeaking = false }: P
     if (!granted) return
     setText('')
     setRecording(true)
-    ExpoSpeechRecognitionModule.start({ lang: 'es-ES', interimResults: true, continuous: false })
+    ExpoSpeechRecognitionModule.start({ lang: 'es-ES', interimResults: true, continuous: true })
   }
 
   const toggleRecording = async () => {

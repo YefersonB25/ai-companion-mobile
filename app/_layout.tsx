@@ -10,6 +10,7 @@ import { useAppUpdate } from '@/lib/useAppUpdate'
 import { syncDailyBriefing } from '@/lib/localNotifications'
 import UpdateModal from '@/components/ui/UpdateModal'
 import { useVoiceTrigger } from '@/store/voiceTrigger'
+import { wakeWord } from '@/lib/wakeWord'
 import '../global.css'
 
 export default function RootLayout() {
@@ -23,11 +24,15 @@ export default function RootLayout() {
 
   useEffect(() => { hydrate() }, [hydrate])
 
-  // Register push token + schedule daily briefing notification once logged in
+  // Register push token + schedule daily briefing + restart wake word if enabled
   useEffect(() => {
     if (token) {
       syncDeviceToken()
       syncDailyBriefing()
+      // Auto-restart servicio de voz si estaba habilitado (se detiene al actualizar la app)
+      if (wakeWord.available) {
+        wakeWord.isRunning().then(enabled => { if (enabled) wakeWord.start() })
+      }
     }
   }, [token])
 

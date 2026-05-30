@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { C } from '@/lib/theme'
 import { wakeWord } from '@/lib/wakeWord'
+import { deviceControl } from '@/lib/deviceControl'
 import { syncDailyBriefing } from '@/lib/localNotifications'
 
 export default function SettingsScreen() {
@@ -23,14 +24,36 @@ export default function SettingsScreen() {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [wakeWordOn, setWakeWordOn] = useState(false)
+  const [wakeWordOn, setWakeWordOn]     = useState(false)
+  const [ttsSpeed, setTtsSpeedState]   = useState(0.95)
+  const [ttsPitch, setTtsPitchState]   = useState(1.0)
+  const [hasOverlay, setHasOverlay]    = useState(true)
+  const [isDeviceAdmin, setIsDeviceAdmin]     = useState(false)
+  const [hasNotifAccess, setHasNotifAccess]   = useState(false)
+  const [canWriteSettings, setCanWrite]       = useState(false)
+  const [drivingMode, setDrivingModeState]    = useState(false)
   const { user, logout } = useAuthStore()
   const router = useRouter()
 
   useEffect(() => {
     api.get('/settings').then(({ data }) => { if (data) setSettings(data) }).catch(() => {})
     wakeWord.isRunning().then(setWakeWordOn)
+    if (wakeWord.available) wakeWord.canDrawOverlays().then(setHasOverlay)
+    if (deviceControl.available) {
+      deviceControl.isDeviceAdmin().then(setIsDeviceAdmin)
+      deviceControl.hasNotificationAccess().then(setHasNotifAccess)
+      deviceControl.canWriteSettings().then(setCanWrite)
+    }
+    if (wakeWord.available) wakeWord.isDrivingMode().then(setDrivingModeState)
   }, [])
+
+  const setTtsSpeed = async (v: number) => { setTtsSpeedState(v); await wakeWord.setTtsSpeed(v) }
+  const setTtsPitch = async (v: number) => { setTtsPitchState(v); await wakeWord.setTtsPitch(v) }
+
+  const toggleDrivingMode = async (on: boolean) => {
+    setDrivingModeState(on)
+    await wakeWord.setDrivingMode(on)
+  }
 
   const toggleWakeWord = async (on: boolean) => {
     if (on) {
@@ -137,7 +160,7 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Activación por voz</Text>
             <Text style={styles.rowDesc}>
-              Di &quot;Hey Aria&quot;, &quot;Oye Aria&quot; o &quot;Hola Aria&quot; en cualquier momento (incluso con el teléfono bloqueado) y la app se abre lista para escuchar tu pregunta.
+              Di &quot;Hey Aria&quot;, &quot;Oye Aria&quot; o &quot;Hola Aria&quot; para activarla. Mientras responde, di &quot;espera&quot;, &quot;para&quot; o &quot;pausa&quot; para interrumpirla.
             </Text>
             <View style={styles.row}>
               <View style={styles.rowText}>
@@ -150,6 +173,165 @@ export default function SettingsScreen() {
                 trackColor={{ false: C.surface, true: C.primaryMuted }}
                 thumbColor={wakeWordOn ? C.primary : C.textSecondary}
               />
+            </View>
+            <View style={styles.infoBox}>
+              <Text style={styles.infoText}>
+                💡 Para activar con el botón de encendido: ve a{' '}
+                <Text style={styles.infoTextBold}>Ajustes → Apps → Predeterminadas → Asistente digital</Text>
+                {' '}y selecciona AI Companion.
+              </Text>
+            </View>
+
+            {/* Permiso overlay para abrir apps */}
+            {!hasOverlay && (
+              <TouchableOpacity
+                style={[styles.row, { marginTop: 10, backgroundColor: C.surface2, borderRadius: 12, padding: 12 }]}
+                onPress={async () => { await wakeWord.requestOverlayPermission(); setTimeout(() => wakeWord.canDrawOverlays().then(setHasOverlay), 1500) }}
+                activeOpacity={0.75}
+              >
+                <View style={styles.rowText}>
+                  <Text style={[styles.rowLabel, { color: '#f59e0b' }]}>⚠ Permiso para abrir apps</Text>
+                  <Text style={styles.rowDesc}>Sin este permiso, Aria no puede abrir WhatsApp, Spotify, etc. desde voz</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={C.textSecondary} />
+              </TouchableOpacity>
+            )}
+            {hasOverlay && (
+              <View style={[styles.row, { marginTop: 10 }]}>
+                <Text style={[styles.rowDesc, { color: '#22c55e' }]}>✓ Permiso para abrir apps concedido</Text>
+              </View>
+            )}
+
+            {/* Velocidad de voz */}
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.rowLabel}>Velocidad de voz</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                {[{ label: 'Lenta', v: 0.7 }, { label: 'Normal', v: 0.95 }, { label: 'Rápida', v: 1.3 }, { label: 'Muy rápida', v: 1.7 }].map(opt => (
+                  <TouchableOpacity
+                    key={opt.v}
+                    onPress={() => setTtsSpeed(opt.v)}
+                    style={[styles.chipBtn, Math.abs(ttsSpeed - opt.v) < 0.1 && styles.chipBtnActive]}
+                  >
+                    <Text style={[styles.chipText, Math.abs(ttsSpeed - opt.v) < 0.1 && styles.chipTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Tono de voz */}
+            <View style={{ marginTop: 12 }}>
+              <Text style={styles.rowLabel}>Tono de voz</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                {[{ label: 'Grave', v: 0.75 }, { label: 'Normal', v: 1.0 }, { label: 'Agudo', v: 1.3 }].map(opt => (
+                  <TouchableOpacity
+                    key={opt.v}
+                    onPress={() => setTtsPitch(opt.v)}
+                    style={[styles.chipBtn, Math.abs(ttsPitch - opt.v) < 0.1 && styles.chipBtnActive]}
+                  >
+                    <Text style={[styles.chipText, Math.abs(ttsPitch - opt.v) < 0.1 && styles.chipTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Control del dispositivo */}
+        {deviceControl.available && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Control del dispositivo</Text>
+            <Text style={styles.rowDesc}>
+              Aria puede controlar tu teléfono por voz: pantalla, linterna, volumen, brillo y notificaciones.
+            </Text>
+
+            {/* Modo conducción */}
+            <View style={[styles.row, { marginTop: 10 }]}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>Modo conducción</Text>
+                <Text style={styles.rowDesc}>Respuestas ultra-cortas mientras manejas</Text>
+              </View>
+              <Switch
+                value={drivingMode}
+                onValueChange={toggleDrivingMode}
+                trackColor={{ false: C.surface, true: C.primaryMuted }}
+                thumbColor={drivingMode ? C.primary : C.textSecondary}
+              />
+            </View>
+
+            {/* Device Admin */}
+            <TouchableOpacity
+              style={[styles.row, { marginTop: 10, backgroundColor: isDeviceAdmin ? C.surface2 : C.primaryMuted, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: isDeviceAdmin ? C.border : C.primary }]}
+              onPress={async () => {
+                if (!isDeviceAdmin) {
+                  await deviceControl.requestDeviceAdmin()
+                  setTimeout(() => deviceControl.isDeviceAdmin().then(setIsDeviceAdmin), 2000)
+                }
+              }}
+              activeOpacity={isDeviceAdmin ? 1 : 0.75}
+            >
+              <View style={styles.rowText}>
+                <Text style={[styles.rowLabel, { color: isDeviceAdmin ? '#22c55e' : C.primary }]}>
+                  {isDeviceAdmin ? '✓ Bloqueo de pantalla activo' : '⚠ Activar bloqueo de pantalla'}
+                </Text>
+                <Text style={styles.rowDesc}>
+                  {isDeviceAdmin ? 'Aria puede bloquear la pantalla con tu voz' : 'Toca para activar administrador de dispositivo'}
+                </Text>
+              </View>
+              {!isDeviceAdmin && <Ionicons name="chevron-forward" size={16} color={C.primary} />}
+            </TouchableOpacity>
+
+            {/* Notification Access */}
+            <TouchableOpacity
+              style={[styles.row, { marginTop: 8, backgroundColor: hasNotifAccess ? C.surface2 : C.primaryMuted, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: hasNotifAccess ? C.border : C.primary }]}
+              onPress={async () => {
+                if (!hasNotifAccess) {
+                  await deviceControl.requestNotificationAccess()
+                  setTimeout(() => deviceControl.hasNotificationAccess().then(setHasNotifAccess), 2000)
+                }
+              }}
+              activeOpacity={hasNotifAccess ? 1 : 0.75}
+            >
+              <View style={styles.rowText}>
+                <Text style={[styles.rowLabel, { color: hasNotifAccess ? '#22c55e' : C.primary }]}>
+                  {hasNotifAccess ? '✓ Acceso a notificaciones activo' : '⚠ Activar acceso a notificaciones'}
+                </Text>
+                <Text style={styles.rowDesc}>
+                  {hasNotifAccess ? 'Di "Lee mis notificaciones" para resumirlas con IA' : 'Toca para dar acceso a notificaciones'}
+                </Text>
+              </View>
+              {!hasNotifAccess && <Ionicons name="chevron-forward" size={16} color={C.primary} />}
+            </TouchableOpacity>
+
+            {/* Write Settings */}
+            <TouchableOpacity
+              style={[styles.row, { marginTop: 8, backgroundColor: canWriteSettings ? C.surface2 : C.primaryMuted, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: canWriteSettings ? C.border : C.primary }]}
+              onPress={async () => {
+                if (!canWriteSettings) {
+                  await deviceControl.setBrightness(128)
+                  setTimeout(() => deviceControl.canWriteSettings().then(setCanWrite), 2000)
+                }
+              }}
+              activeOpacity={canWriteSettings ? 1 : 0.75}
+            >
+              <View style={styles.rowText}>
+                <Text style={[styles.rowLabel, { color: canWriteSettings ? '#22c55e' : C.primary }]}>
+                  {canWriteSettings ? '✓ Control de brillo activo' : '⚠ Activar control de brillo'}
+                </Text>
+                <Text style={styles.rowDesc}>
+                  {canWriteSettings ? 'Di "Pon brillo al máximo" o "Baja el brillo"' : 'Toca para dar permiso de ajustes del sistema'}
+                </Text>
+              </View>
+              {!canWriteSettings && <Ionicons name="chevron-forward" size={16} color={C.primary} />}
+            </TouchableOpacity>
+
+            <View style={styles.infoBox}>
+              <Text style={styles.infoText}>
+                Comandos: &quot;bloquea la pantalla&quot;, &quot;enciende la linterna&quot;, &quot;sube el volumen a 10&quot;, &quot;pon brillo al máximo&quot;, &quot;lee mis notificaciones&quot;, &quot;activa modo conducción&quot;
+              </Text>
             </View>
           </View>
         )}
@@ -266,6 +448,13 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowLabel: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
   rowDesc:  { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+  infoBox:  { backgroundColor: C.primaryMuted, borderRadius: 10, padding: 12, marginTop: 10, borderWidth: 1, borderColor: C.primary },
+  infoText: { fontSize: 12, color: C.textSecondary, lineHeight: 18 },
+  infoTextBold: { fontWeight: '700', color: C.textPrimary },
+  chipBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: C.surface2, borderWidth: 1.5, borderColor: C.border },
+  chipBtnActive: { backgroundColor: C.primaryMuted, borderColor: C.primary },
+  chipText: { fontSize: 12, color: C.textSecondary },
+  chipTextActive: { color: C.primary, fontWeight: '600' },
   fieldLabel: { fontSize: 13, fontWeight: '500', color: C.textPrimary },
   textarea: {
     borderWidth: 1.5, borderColor: C.border, borderRadius: 10,

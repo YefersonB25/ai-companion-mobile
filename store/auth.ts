@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import * as SecureStore from 'expo-secure-store'
 import { User } from '@/types'
 import api from '@/lib/api'
+import { wakeWord } from '@/lib/wakeWord'
 
 interface AuthState {
   user: User | null
@@ -28,6 +29,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           headers: { Authorization: `Bearer ${token}` },
         })
         set({ user: data, token, hydrated: true })
+        wakeWord.setAuthToken(token)
       } catch {
         await SecureStore.deleteItemAsync('token')
         set({ hydrated: true })
@@ -43,6 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { data } = await api.post('/auth/login', { email, password })
       await SecureStore.setItemAsync('token', data.token)
       set({ user: data.user, token: data.token })
+      wakeWord.setAuthToken(data.token)
     } finally {
       set({ isLoading: false })
     }
@@ -56,6 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       })
       await SecureStore.setItemAsync('token', data.token)
       set({ user: data.user, token: data.token })
+      wakeWord.setAuthToken(data.token)
     } finally {
       set({ isLoading: false })
     }

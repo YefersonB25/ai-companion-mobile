@@ -22,6 +22,14 @@ interface WakeWordNative {
   start(): Promise<boolean>
   stop(): Promise<boolean>
   isRunning(): Promise<boolean>
+  setAuthToken(token: string): Promise<boolean>
+  setApiUrl(url: string): Promise<boolean>
+  setTtsSpeed(speed: number): Promise<boolean>
+  setTtsPitch(pitch: number): Promise<boolean>
+  canDrawOverlays(): Promise<boolean>
+  requestOverlayPermission(): Promise<null>
+  setDrivingMode(on: boolean): Promise<boolean>
+  isDrivingMode(): Promise<boolean>
 }
 
 export const wakeWord = {
@@ -56,5 +64,44 @@ export const wakeWord = {
     } catch {
       return false
     }
+  },
+
+  async setAuthToken(token: string): Promise<void> {
+    if (!Native) return
+    try { await Native.setAuthToken(token) } catch { /* no-op */ }
+  },
+
+  async setApiUrl(url: string): Promise<void> {
+    if (!Native) return
+    try { await Native.setApiUrl(url) } catch { /* no-op */ }
+  },
+
+  async setTtsSpeed(speed: number): Promise<void> {
+    if (!Native) return
+    try { await Native.setTtsSpeed(speed) } catch { /* no-op */ }
+  },
+
+  async setTtsPitch(pitch: number): Promise<void> {
+    if (!Native) return
+    try { await Native.setTtsPitch(pitch) } catch { /* no-op */ }
+  },
+
+  async canDrawOverlays(): Promise<boolean> {
+    if (!Native) return false
+    try { return await Native.canDrawOverlays() } catch { return false }
+  },
+
+  async requestOverlayPermission(): Promise<void> {
+    if (!Native) return
+    try { await Native.requestOverlayPermission() } catch { /* no-op */ }
+  },
+
+  async setDrivingMode(on: boolean): Promise<void> {
+    if (!Native) return
+    try { await Native.setDrivingMode(on) } catch { /* no-op */ }
+  },
+  async isDrivingMode(): Promise<boolean> {
+    if (!Native) return false
+    try { return await Native.isDrivingMode() } catch { return false }
   },
 }
