@@ -114,8 +114,9 @@ const styles = StyleSheet.create({
   meta:   { fontSize: 10, color: C.textSecondary, marginTop: 5 },
   messageImage: {
     width: '100%',
-    height: 200,
+    aspectRatio: 16 / 9,   // M-08: aspect ratio fijo para evitar layout thrashing
     borderRadius: 8,
     marginBottom: 8,
+    backgroundColor: '#f1f5f9',  // placeholder mientras carga
   },
 })

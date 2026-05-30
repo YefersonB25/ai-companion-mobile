@@ -208,6 +208,13 @@ export default function ChatScreen() {
           keyExtractor={(item) => String(item.id)}
           style={styles.list}
           contentContainerStyle={styles.listContent}
+          // M-07: optimizaciones de performance
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          windowSize={10}
+          removeClippedSubviews={true}
+          initialNumToRender={15}
+          getItemLayout={undefined}  // sin getItemLayout porque los mensajes son variable height
         />
       )}
 
