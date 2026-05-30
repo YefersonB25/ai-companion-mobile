@@ -2,7 +2,7 @@
   "expo": {
     "name": "AI Companion",
     "slug": "ai-companion-mobile",
-    "version": "1.0.29",
+    "version": "1.0.30",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -32,7 +32,7 @@
     },
     "android": {
       "package": "com.aicompanion.mobile",
-      "versionCode": 30,
+      "versionCode": 31,
       "adaptiveIcon": {
         "backgroundColor": "#6366f1",
         "foregroundImage": "./assets/android-icon-foreground.png",
