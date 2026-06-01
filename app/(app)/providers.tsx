@@ -28,6 +28,25 @@ const SUPPORTED = [
   { name: 'mistral',  label: 'Mistral AI',       models: ['mistral-large-latest', 'codestral-latest'] },
 ]
 
+function GeminiStep({ n, text, dark }: { n: number; text: string; dark?: boolean }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+      <View style={[stepStyles.num, dark && stepStyles.numDark]}>
+        <Text style={stepStyles.numText}>{n}</Text>
+      </View>
+      <Text style={[stepStyles.text, dark && stepStyles.textDark]}>{text}</Text>
+    </View>
+  )
+}
+
+const stepStyles = StyleSheet.create({
+  num:      { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fbbf24', alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0 },
+  numDark:  { backgroundColor: '#6366f1' },
+  numText:  { fontSize: 11, fontWeight: '800', color: '#fff' },
+  text:     { flex: 1, fontSize: 13, color: '#92400e', lineHeight: 20 },
+  textDark: { color: '#374151' },
+})
+
 export default function ProvidersScreen() {
   const [providers, setProviders] = useState<AiProvider[]>([])
   const [showModal, setShowModal] = useState(false)
@@ -127,11 +146,41 @@ export default function ProvidersScreen() {
       </View>
 
       {providers.length === 0 ? (
-        <View style={styles.empty}>
+        <ScrollView contentContainerStyle={styles.emptyScroll}>
           <Text style={styles.emptyEmoji}>🤖</Text>
           <Text style={styles.emptyText}>Sin proveedores configurados</Text>
-          <Text style={styles.emptySubtext}>Agrega tu primera API key para empezar</Text>
-        </View>
+          <Text style={styles.emptySubtext}>Necesitas una API key para que Aria pueda responderte.</Text>
+
+          {/* Gemini recommended card */}
+          <View style={styles.geminiCard}>
+            <View style={styles.geminiHeader}>
+              <Text style={styles.geminiEmoji}>🔶</Text>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.geminiTitle}>Google Gemini</Text>
+                  <View style={styles.freeBadge}><Text style={styles.freeBadgeText}>✨ GRATIS</Text></View>
+                </View>
+                <Text style={styles.geminiSub}>1,500 solicitudes/día sin tarjeta de crédito</Text>
+              </View>
+            </View>
+
+            <View style={styles.steps}>
+              <GeminiStep n={1} text="Abre el siguiente enlace y presiona «Crear API Key»" />
+              <GeminiStep n={2} text='Copia la clave generada (empieza con "AIza...")' />
+              <GeminiStep n={3} text='Regresa aquí, presiona «+ Agregar» y pégala' />
+            </View>
+
+            <TouchableOpacity
+              style={styles.geminiBtn}
+              onPress={() => Linking.openURL('https://aistudio.google.com/apikey')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.geminiBtnText}>Obtener API key gratuita →  aistudio.google.com</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Button label="+ Agregar proveedor" onPress={() => setShowModal(true)} size="lg" />
+        </ScrollView>
       ) : (
         <FlatList
           data={providers}
@@ -183,18 +232,40 @@ export default function ProvidersScreen() {
               ))}
             </View>
 
+            {/* Gemini step-by-step guide */}
+            {form.provider === 'gemini' && (
+              <View style={styles.geminiGuide}>
+                <View style={styles.geminiGuideHeader}>
+                  <Text style={styles.geminiGuideTitle}>🔶 Cómo obtener tu API key gratis</Text>
+                  <View style={styles.freeBadge}><Text style={styles.freeBadgeText}>✨ GRATIS</Text></View>
+                </View>
+                <View style={styles.steps}>
+                  <GeminiStep n={1} text="Abre el enlace de abajo → presiona «Crear API Key»" dark />
+                  <GeminiStep n={2} text='Copia la clave generada (empieza con "AIza...")' dark />
+                  <GeminiStep n={3} text="Pégala en el campo API Key de abajo y guarda" dark />
+                </View>
+                <TouchableOpacity
+                  style={styles.geminiGuideBtn}
+                  onPress={() => Linking.openURL('https://aistudio.google.com/apikey')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.geminiGuideBtnText}>Ir a aistudio.google.com/apikey ↗</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <Text style={styles.fieldLabel}>API Key</Text>
             <TextInput
               style={styles.keyInput}
               value={form.api_key}
               onChangeText={(v) => setForm({ ...form, api_key: v })}
-              placeholder="sk-... o similar"
+              placeholder={form.provider === 'gemini' ? 'AIzaSy...' : 'sk-... o similar'}
               placeholderTextColor="#94a3b8"
               secureTextEntry
               autoCapitalize="none"
             />
 
-            {PROVIDER_KEY_URLS[form.provider] && (
+            {PROVIDER_KEY_URLS[form.provider] && form.provider !== 'gemini' && (
               <TouchableOpacity
                 style={styles.helpLink}
                 onPress={() => Linking.openURL(PROVIDER_KEY_URLS[form.provider].url)}
@@ -283,4 +354,40 @@ const styles = StyleSheet.create({
     marginTop: -8, marginBottom: 8,
   },
   helpText: { fontSize: 12, color: '#6366f1', textDecorationLine: 'underline' },
+
+  // Empty state
+  emptyScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
+
+  // Gemini recommended card (empty state)
+  geminiCard: {
+    width: '100%', backgroundColor: '#fffbeb',
+    borderRadius: 16, borderWidth: 1.5, borderColor: '#fcd34d',
+    padding: 18, gap: 14,
+  },
+  geminiHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  geminiEmoji:  { fontSize: 28, marginTop: 2 },
+  geminiTitle:  { fontSize: 16, fontWeight: '700', color: '#92400e' },
+  geminiSub:    { fontSize: 12, color: '#b45309', marginTop: 2 },
+  steps:        { gap: 0 },
+  freeBadge:    { backgroundColor: '#fef3c7', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  freeBadgeText:{ fontSize: 10, fontWeight: '700', color: '#92400e' },
+  geminiBtn: {
+    backgroundColor: '#f59e0b', borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center',
+  },
+  geminiBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+
+  // Gemini guide inside modal
+  geminiGuide: {
+    backgroundColor: '#f0fdf4', borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#86efac',
+    padding: 14, gap: 10,
+  },
+  geminiGuideHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  geminiGuideTitle:  { fontSize: 13, fontWeight: '700', color: '#166534', flex: 1 },
+  geminiGuideBtn: {
+    backgroundColor: '#16a34a', borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center',
+  },
+  geminiGuideBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 })
