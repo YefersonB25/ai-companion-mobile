@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  View, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
   Platform, KeyboardAvoidingView, ActivityIndicator,
   Image, Animated,
 } from 'react-native'
@@ -18,9 +18,11 @@ interface Props {
   onSend: (text: string, opts?: { viaVoice?: boolean; imageUri?: string | null }) => void
   isStreaming: boolean
   isSpeaking?: boolean
+  noProvider?: boolean
+  onConfigureProvider?: () => void
 }
 
-export default function ChatInput({ onSend, isStreaming, isSpeaking = false }: Props) {
+export default function ChatInput({ onSend, isStreaming, isSpeaking = false, noProvider = false, onConfigureProvider }: Props) {
   const [text, setText] = useState('')
   const [recording, setRecording] = useState(false)
   const [interimText, setInterimText] = useState('')
@@ -113,6 +115,22 @@ export default function ChatInput({ onSend, isStreaming, isSpeaking = false }: P
   const displayText  = recording ? interimText : text
   const placeholder  = recording ? 'Escuchando...' : 'Escribe o habla...'
   const canSend      = !recording && (!!text.trim() || !!pendingImage) && !isStreaming
+
+  // If no provider configured, show a blocking banner instead of the input
+  if (noProvider) {
+    return (
+      <View style={styles.noProviderBanner}>
+        <Ionicons name="hardware-chip-outline" size={18} color={C.primary} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.noProviderTitle}>Sin proveedor de IA configurado</Text>
+          <Text style={styles.noProviderSub}>Necesitas agregar una API key para que Aria pueda responderte</Text>
+        </View>
+        <TouchableOpacity style={styles.noProviderBtn} onPress={onConfigureProvider} activeOpacity={0.8}>
+          <Text style={styles.noProviderBtnText}>Configurar</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
 
   return (
     <KeyboardAvoidingView
@@ -259,4 +277,18 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
   },
   sendBtnDisabled: { backgroundColor: C.primaryMuted },
+
+  noProviderBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.primaryMuted, borderTopWidth: 1, borderTopColor: C.primary,
+    paddingHorizontal: 14, paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+  },
+  noProviderTitle: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+  noProviderSub:   { fontSize: 11, color: C.textSecondary, marginTop: 1 },
+  noProviderBtn: {
+    backgroundColor: C.primary, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 8,
+  },
+  noProviderBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
 })

@@ -218,7 +218,13 @@ export default function ChatScreen() {
         />
       )}
 
-      <ChatInput onSend={handleSend} isStreaming={isStreaming} isSpeaking={isSpeaking} />
+      <ChatInput
+        onSend={handleSend}
+        isStreaming={isStreaming}
+        isSpeaking={isSpeaking}
+        noProvider={providersChecked && !activeProvider}
+        onConfigureProvider={() => router.push('/(app)/providers' as never)}
+      />
     </SafeAreaView>
   )
 }

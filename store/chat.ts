@@ -109,11 +109,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (!res.ok) {
         let msg = `Error ${res.status}`
+        let errorCode = ''
         try {
           const body = await res.json()
+          errorCode = body.error ?? ''
           msg = body.message ?? msg
         } catch {}
-        get().appendChunk(`⚠️ ${msg}`)
+
+        if (errorCode === 'no_provider') {
+          get().appendChunk(
+            '⚙️ **Sin proveedor de IA configurado**\n\n' +
+            'Para que Aria pueda responderte necesitas agregar una API key.\n\n' +
+            'Ve a **Ajustes → Proveedores IA** y agrega tu clave de Gemini (gratis), OpenAI, Claude u otro.'
+          )
+        } else if (errorCode === 'license_required') {
+          get().appendChunk('🔒 Necesitas una licencia activa para continuar usando AI Companion.')
+        } else {
+          get().appendChunk(`⚠️ ${msg}`)
+        }
         return
       }
 
