@@ -68,3 +68,26 @@ export interface UserSetting {
   briefing_time: string
   briefing_city: string | null
 }
+
+// ─── License ──────────────────────────────────
+
+export interface LicenseStatus {
+  licenses_required: boolean
+  has_active_license: boolean
+  license: {
+    id: number
+    key: string
+    type: 'monthly' | 'yearly' | 'custom'
+    status: 'active' | 'expired' | 'revoked'
+    starts_at: string
+    expires_at: string
+    days_remaining: number
+    is_active: boolean
+  } | null
+  pending_request: {
+    id: number
+    plan_type: 'monthly' | 'yearly'
+    status: string
+    created_at: string
+  } | null
+}

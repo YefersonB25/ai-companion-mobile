@@ -403,6 +403,17 @@ export default function SettingsScreen() {
           size="lg"
         />
 
+        {/* Licencia */}
+        <TouchableOpacity
+          style={styles.licenseBtn}
+          onPress={() => router.push('/(app)/license' as never)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="key-outline" size={18} color={C.primary} />
+          <Text style={styles.licenseBtnText}>Mi Licencia</Text>
+          <Ionicons name="chevron-forward" size={16} color={C.textSecondary} style={{ marginLeft: 'auto' }} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
           <Ionicons name="log-out-outline" size={18} color={C.red} />
           <Text style={styles.logoutText}>Cerrar sesión</Text>
@@ -462,6 +473,13 @@ const styles = StyleSheet.create({
     fontSize: 14, color: C.textPrimary, backgroundColor: C.surface2,
     minHeight: 100,
   },
+
+  licenseBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.surface, borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: C.border,
+  },
+  licenseBtnText: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
 
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
