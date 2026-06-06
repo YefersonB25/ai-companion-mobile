@@ -44,6 +44,7 @@ export default function SettingsScreen() {
   const [canWriteSettings, setCanWrite]       = useState(false)
   const [drivingMode, setDrivingModeState]    = useState(false)
   const [autoDriving, setAutoDrivingState]    = useState(false)
+  const [bargeIn, setBargeInState]            = useState(false)
   const [google, setGoogle]            = useState<Integration | null>(null)
   const [googleLoading, setGoogleLoading]     = useState(false)
   const [ttsProviders, setTtsProviders]       = useState<string[]>([])
@@ -167,6 +168,7 @@ export default function SettingsScreen() {
     }
     if (wakeWord.available) wakeWord.isDrivingMode().then(setDrivingModeState)
     if (wakeWord.available) wakeWord.isAutoDriving().then(setAutoDrivingState)
+    if (wakeWord.available) wakeWord.isBargeIn().then(setBargeInState)
   }, [])
 
   const setTtsSpeed = async (v: number) => { setTtsSpeedState(v); await wakeWord.setTtsSpeed(v) }
@@ -205,6 +207,11 @@ export default function SettingsScreen() {
     }
     setAutoDrivingState(true)
     await wakeWord.setAutoDriving(true)
+  }
+
+  const toggleBargeIn = async (on: boolean) => {
+    setBargeInState(on)
+    await wakeWord.setBargeIn(on)
   }
 
   const toggleWakeWord = async (on: boolean) => {
@@ -388,6 +395,22 @@ export default function SettingsScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+
+            {/* Barge-in (experimental) */}
+            <View style={[styles.row, { marginTop: 14 }]}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>Interrumpir a Aria hablando (experimental)</Text>
+                <Text style={styles.rowDesc}>
+                  Puede cortar respuestas largas si tu micrófono capta la voz de Aria; actívalo solo si quieres probarlo.
+                </Text>
+              </View>
+              <Switch
+                value={bargeIn}
+                onValueChange={toggleBargeIn}
+                trackColor={{ false: C.surface, true: C.primaryMuted }}
+                thumbColor={bargeIn ? C.primary : C.textSecondary}
+              />
             </View>
           </View>
         )}

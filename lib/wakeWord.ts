@@ -32,6 +32,8 @@ interface WakeWordNative {
   isDrivingMode(): Promise<boolean>
   setAutoDriving(on: boolean): Promise<boolean>
   isAutoDriving(): Promise<boolean>
+  setBargeIn(on: boolean): Promise<boolean>
+  isBargeIn(): Promise<boolean>
 }
 
 export const wakeWord = {
@@ -114,5 +116,15 @@ export const wakeWord = {
   async isAutoDriving(): Promise<boolean> {
     if (!Native) return false
     try { return await Native.isAutoDriving() } catch { return false }
+  },
+
+  // Barge-in (interrumpir a Aria hablando) — experimental, default OFF.
+  async setBargeIn(on: boolean): Promise<void> {
+    if (!Native) return
+    try { await Native.setBargeIn(on) } catch { /* no-op */ }
+  },
+  async isBargeIn(): Promise<boolean> {
+    if (!Native) return false
+    try { return await Native.isBargeIn() } catch { return false }
   },
 }

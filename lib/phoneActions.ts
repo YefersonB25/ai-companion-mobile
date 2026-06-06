@@ -59,20 +59,23 @@ async function findContactPhone(name: string): Promise<string | null> {
  * Music player URI schemes for popular Android apps.
  * Each value is a search URI that triggers a play action inside the app.
  */
-const MUSIC_APPS: Record<string, { label: string; uri: (q: string) => string; pkg: string }> = {
+const MUSIC_APPS: Record<string, { label: string; uri: (q: string) => string; web: (q: string) => string; pkg: string }> = {
   spotify: {
     label: 'Spotify',
     uri: (q) => `spotify:search:${encodeURIComponent(q)}`,
+    web: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}`,
     pkg: 'com.spotify.music',
   },
   youtubemusic: {
     label: 'YouTube Music',
     uri: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}`,
+    web: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}`,
     pkg: 'com.google.android.apps.youtube.music',
   },
   youtube: {
     label: 'YouTube',
     uri: (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`,
+    web: (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`,
     pkg: 'com.google.android.youtube',
   },
 }
@@ -88,6 +91,22 @@ const APP_PACKAGES: Record<string, string> = {
   instagram:   'com.instagram.android',
   facebook:    'com.facebook.katana',
   twitter:     'com.twitter.android',
+}
+
+/**
+ * FIX 3: webs a las que caer cuando la app oficial no está instalada.
+ * Dejamos que el sistema elija el navegador/app que maneje la URL.
+ */
+const APP_WEB_FALLBACKS: Record<string, string> = {
+  youtube:      'https://www.youtube.com',
+  youtubemusic: 'https://music.youtube.com',
+  spotify:      'https://open.spotify.com',
+  gmail:        'https://mail.google.com',
+  maps:         'https://maps.google.com',
+  instagram:    'https://www.instagram.com',
+  facebook:     'https://www.facebook.com',
+  twitter:      'https://twitter.com',
+  whatsapp:     'https://web.whatsapp.com',
 }
 
 async function executeSendSMS(action: PhoneAction) {
@@ -150,13 +169,24 @@ async function executePlayMusic(action: PhoneAction) {
     return
   }
   const appKey = action.app ?? (await pickMusicApp())
-  if (!appKey) return
+  // FIX 3: ningún reproductor instalado → fallback web de búsqueda de música.
+  if (!appKey) {
+    if (await openWebFallback(MUSIC_APPS.youtubemusic.web(action.query))) return
+    Alert.alert('Sin reproductor', 'No encontré una app de música para reproducir eso.')
+    return
+  }
   const cfg = MUSIC_APPS[appKey]
   if (!cfg) {
     Alert.alert('Reproductor no soportado', `"${appKey}" no está en la lista.`)
     return
   }
-  Linking.openURL(cfg.uri(action.query))
+  // Si la app pedida no maneja su esquema (no instalada), cae a su web de búsqueda.
+  const uri = cfg.uri(action.query)
+  try {
+    if (await Linking.canOpenURL(uri)) { await Linking.openURL(uri); return }
+  } catch { /* sigue al fallback */ }
+  if (await openWebFallback(cfg.web(action.query))) return
+  Alert.alert('Sin reproductor', `No pude abrir ${cfg.label} para reproducir eso.`)
 }
 
 async function executeOpenApp(action: PhoneAction) {
@@ -164,7 +194,8 @@ async function executeOpenApp(action: PhoneAction) {
     Alert.alert('Acción inválida', 'Falta nombre de app.')
     return
   }
-  const pkg = APP_PACKAGES[action.name.toLowerCase()]
+  const key = action.name.toLowerCase()
+  const pkg = APP_PACKAGES[key]
   if (!pkg) {
     Alert.alert('App no reconocida', `No conozco "${action.name}". Las soportadas son: ${Object.keys(APP_PACKAGES).join(', ')}.`)
     return
@@ -179,7 +210,21 @@ async function executeOpenApp(action: PhoneAction) {
       flags: 0x10000000, // FLAG_ACTIVITY_NEW_TASK
     })
   } catch {
-    Alert.alert('No instalada', `${action.name} no está instalada en tu teléfono.`)
+    // FIX 3: app oficial no instalada → fallback web (deja que el sistema elija).
+    const web = APP_WEB_FALLBACKS[key]
+    if (web && (await openWebFallback(web))) return
+    Alert.alert('No encontrada', `No encontré una app para ${action.name}.`)
+  }
+}
+
+/** FIX 3: abre una URL web vía ACTION_VIEW. Devuelve true si se pudo abrir. */
+async function openWebFallback(url: string): Promise<boolean> {
+  try {
+    if (!(await Linking.canOpenURL(url))) return false
+    await Linking.openURL(url)
+    return true
+  } catch {
+    return false
   }
 }
 
