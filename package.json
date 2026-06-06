@@ -1,6 +1,6 @@
 {
   "name": "ai-companion-mobile",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~56.0.13",
