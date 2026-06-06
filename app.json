@@ -2,7 +2,7 @@
   "expo": {
     "name": "AI Companion",
     "slug": "ai-companion-mobile",
-    "version": "1.0.31",
+    "version": "1.0.33",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -24,7 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aicompanion.mobile",
-      "buildNumber": "1",
+      "buildNumber": "34",
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "Permite el reconocimiento de voz para que puedas hablar con AI Companion.",
         "NSMicrophoneUsageDescription": "Permite que AI Companion escuche tu voz para responder a tus preguntas."
@@ -32,7 +32,7 @@
     },
     "android": {
       "package": "com.aicompanion.mobile",
-      "versionCode": 32,
+      "versionCode": 34,
       "adaptiveIcon": {
         "backgroundColor": "#6366f1",
         "foregroundImage": "./assets/android-icon-foreground.png",

@@ -18,6 +18,7 @@ interface ChatState {
   deleteConversation: (id: number) => Promise<void>
   sendMessage: (content: string, opts?: { viaVoice?: boolean }) => Promise<void>
   appendChunk: (chunk: string) => void
+  addAssistantMessage: (content: string) => Promise<void>
   setTtsEnabled: (v: boolean) => void
   stopSpeaking: () => void
 }
@@ -214,6 +215,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       return { messages: msgs }
     }),
+
+  /**
+   * Insert a standalone assistant message into the current conversation (no
+   * backend round-trip). Used to surface the daily briefing in the chat when
+   * the user taps the briefing notification.
+   */
+  addAssistantMessage: async (content) => {
+    let conv = get().activeConversation
+    if (!conv) conv = await get().createConversation()
+    const now = Date.now()
+    const msg: Message = {
+      id: now,
+      conversation_id: conv.id,
+      role: 'assistant',
+      content,
+      provider: null,
+      model: null,
+      input_tokens: 0,
+      output_tokens: 0,
+      latency_ms: null,
+      created_at: new Date().toISOString(),
+    }
+    set((s) => ({ messages: [...s.messages, msg] }))
+  },
 
   setTtsEnabled: (v) => set({ ttsEnabled: v }),
 

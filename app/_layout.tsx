@@ -8,10 +8,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useAuthStore } from '@/store/auth'
 import { syncDeviceToken } from '@/lib/notifications'
 import { useAppUpdate } from '@/lib/useAppUpdate'
-import { syncDailyBriefing } from '@/lib/localNotifications'
+import { syncDailyBriefing, setBriefingPending } from '@/lib/localNotifications'
 import UpdateModal from '@/components/ui/UpdateModal'
 import OnboardingModal from '@/components/ui/OnboardingModal'
 import { useVoiceTrigger } from '@/store/voiceTrigger'
+import { useOAuthReturn } from '@/store/oauthReturn'
 import { wakeWord } from '@/lib/wakeWord'
 import '../global.css'
 
@@ -53,15 +54,21 @@ export default function RootLayout() {
     }
   }, [token])
 
-  // Detect launches via deep link ai-companion://voice (home shortcut, assist intent target)
+  // Detect launches via deep links:
+  //  - ai-companion://voice (home shortcut, assist intent target)
+  //  - ai-companion://oauth?google=connected (return from Google consent)
   useEffect(() => {
-    const checkVoiceLaunch = (url: string | null) => {
-      if (url && url.includes('voice')) {
+    const handleUrl = (url: string | null) => {
+      if (!url) return
+      if (url.includes('voice')) {
         useVoiceTrigger.getState().trigger()
       }
+      if (url.includes('oauth') && url.includes('google=connected')) {
+        useOAuthReturn.getState().markGoogleConnected()
+      }
     }
-    Linking.getInitialURL().then(checkVoiceLaunch)
-    const sub = Linking.addEventListener('url', (evt) => checkVoiceLaunch(evt.url))
+    Linking.getInitialURL().then(handleUrl)
+    const sub = Linking.addEventListener('url', (evt) => handleUrl(evt.url))
     return () => sub.remove()
   }, [])
 
@@ -76,10 +83,14 @@ export default function RootLayout() {
       if (data?.conversation_id) {
         router.push(`/(app)/${data.conversation_id}` as never)
       } else if (data?.type === 'briefing') {
-        // Open chat and let the chat screen pick up the pending briefing flag
+        // Mark the briefing as pending so the chat screen fetches & presents it
+        setBriefingPending()
         router.push('/(app)' as never)
         useVoiceTrigger.setState({ pending: false }) // ensure mic doesn't auto-start
       } else if (data?.type === 'reminder') {
+        router.push('/(app)' as never)
+      } else if (data?.type === 'calendar_trigger') {
+        // Open chat so the user can ask Aria about the upcoming event
         router.push('/(app)' as never)
       }
     })

@@ -12,6 +12,7 @@ import api from './api'
 
 const BRIEFING_ID_KEY      = '@briefing_notif_id'
 const BRIEFING_LAST_DAY    = '@briefing_last_day'
+const BRIEFING_PENDING_KEY = '@briefing_pending'
 const REMINDER_PREFIX      = '@reminder_'
 
 async function ensurePermission(): Promise<boolean> {
@@ -91,6 +92,29 @@ export async function fetchTodayBriefing(): Promise<string | null> {
     return data.content ?? null
   } catch {
     return null
+  }
+}
+
+/**
+ * Briefing "pending" flag — persisted so it survives a cold launch from a
+ * notification tap. Set by `_layout.tsx` when the briefing notification is
+ * tapped; consumed by the chat screen (`app/(app)/index.tsx`) which then
+ * fetches and presents today's briefing, and clears the flag afterwards.
+ */
+export async function setBriefingPending(): Promise<void> {
+  await AsyncStorage.setItem(BRIEFING_PENDING_KEY, '1').catch(() => {})
+}
+
+export async function consumeBriefingPending(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(BRIEFING_PENDING_KEY)
+    if (v) {
+      await AsyncStorage.removeItem(BRIEFING_PENDING_KEY)
+      return true
+    }
+    return false
+  } catch {
+    return false
   }
 }
 

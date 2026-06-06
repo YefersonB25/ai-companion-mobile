@@ -16,6 +16,7 @@ import { Message } from '@/types'
 import { AiProvider } from '@/types'
 import api from '@/lib/api'
 import { C } from '@/lib/theme'
+import { fetchTodayBriefing, consumeBriefingPending } from '@/lib/localNotifications'
 
 const SUGGESTIONS = [
   { icon: 'search-outline',      text: '¿Qué pasó hoy en el mundo?' },
@@ -26,7 +27,7 @@ const SUGGESTIONS = [
 
 export default function ChatScreen() {
   const router = useRouter()
-  const { messages, isStreaming, sendMessage, activeConversation, createConversation } = useChatStore()
+  const { messages, isStreaming, sendMessage, activeConversation, createConversation, addAssistantMessage } = useChatStore()
   const { user } = useAuthStore()
   const [activeProvider, setActiveProvider] = useState<AiProvider | null>(null)
   const [providersChecked, setProvidersChecked] = useState(false)
@@ -47,6 +48,35 @@ export default function ChatScreen() {
 
   // Re-check provider when returning to chat (e.g. after configuring one)
   useFocusEffect(useCallback(() => { loadProvider() }, [loadProvider]))
+
+  // If the app was opened via the briefing notification, fetch today's briefing,
+  // show it as an assistant message and (if TTS is on) read it aloud.
+  useFocusEffect(useCallback(() => {
+    let cancelled = false
+    consumeBriefingPending().then(async (pending) => {
+      if (!pending || cancelled) return
+      const content = await fetchTodayBriefing()
+      if (!content || cancelled) return
+      await addAssistantMessage(content)
+      if (cancelled) return
+      if (ttsEnabled) {
+        const spoken = textForTts(content)
+        if (spoken) {
+          Speech.stop()
+          setIsSpeaking(true)
+          Speech.speak(spoken, {
+            language: 'es-ES',
+            rate: 0.95,
+            pitch: 1.0,
+            onDone: () => setIsSpeaking(false),
+            onStopped: () => setIsSpeaking(false),
+            onError: () => setIsSpeaking(false),
+          })
+        }
+      }
+    })
+    return () => { cancelled = true }
+  }, [addAssistantMessage, ttsEnabled]))
 
   useEffect(() => {
     if (messages.length > 0) {

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View, Text, ScrollView, StyleSheet,
-  Switch, Alert, TouchableOpacity, TextInput, StatusBar,
+  Switch, Alert, TouchableOpacity, TextInput, StatusBar, Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import api from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
 import { UserSetting } from '@/types'
@@ -15,6 +15,16 @@ import { C } from '@/lib/theme'
 import { wakeWord } from '@/lib/wakeWord'
 import { deviceControl } from '@/lib/deviceControl'
 import { syncDailyBriefing } from '@/lib/localNotifications'
+import { useOAuthReturn } from '@/store/oauthReturn'
+
+interface Integration {
+  provider: string
+  account_email: string | null
+  scopes: string[]
+  connected: boolean
+  expired: boolean
+  connected_at: string | null
+}
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<Partial<UserSetting>>({
@@ -32,8 +42,117 @@ export default function SettingsScreen() {
   const [hasNotifAccess, setHasNotifAccess]   = useState(false)
   const [canWriteSettings, setCanWrite]       = useState(false)
   const [drivingMode, setDrivingModeState]    = useState(false)
+  const [google, setGoogle]            = useState<Integration | null>(null)
+  const [googleLoading, setGoogleLoading]     = useState(false)
+  const [ttsProviders, setTtsProviders]       = useState<string[]>([])
+  const [ttsDefault, setTtsDefault]           = useState<string | null>(null)
+  const [ttsSelected, setTtsSelected]         = useState<string | null>(null)
+  const [ttsLoaded, setTtsLoaded]             = useState(false)
+  const [ttsSaving, setTtsSaving]             = useState<string | null>(null)
   const { user, logout } = useAuthStore()
   const router = useRouter()
+  const googleConnected = useOAuthReturn((s) => s.googleConnected)
+
+  const loadIntegrations = useCallback(async () => {
+    try {
+      const { data } = await api.get('/integrations')
+      const list: Integration[] = data?.integrations ?? []
+      setGoogle(list.find((i) => i.provider === 'google') ?? null)
+    } catch {
+      // silencioso: si falla la red dejamos el último estado conocido
+    }
+  }, [])
+
+  const loadTtsProviders = useCallback(async () => {
+    try {
+      const { data } = await api.get('/tts/providers')
+      setTtsProviders(Array.isArray(data?.providers) ? data.providers : [])
+      setTtsDefault(data?.default ?? null)
+      setTtsSelected(data?.selected ?? null)
+      setTtsLoaded(true)
+    } catch {
+      // error de carga: no rompemos la pantalla, simplemente no mostramos la sección
+      setTtsLoaded(false)
+    }
+  }, [])
+
+  // Re-fetch al enfocar la pantalla (fallback robusto: cubre el regreso
+  // manual desde el navegador aunque el deep link no dispare).
+  useFocusEffect(useCallback(() => {
+    loadIntegrations()
+    loadTtsProviders()
+  }, [loadIntegrations, loadTtsProviders]))
+
+  const TTS_LABELS: Record<string, string> = {
+    gemini:     'Gemini · multilingüe (ES/EN)',
+    elevenlabs: 'ElevenLabs · premium',
+    openai:     'OpenAI',
+  }
+  const ttsLabel = (p: string) => TTS_LABELS[p] ?? p
+  const currentTts = ttsSelected ?? ttsDefault
+
+  const handleSelectTts = async (provider: string) => {
+    if (provider === currentTts || ttsSaving) return
+    setTtsSaving(provider)
+    const prev = ttsSelected
+    setTtsSelected(provider) // optimista
+    try {
+      await api.put('/settings', { ...settings, tts_provider: provider })
+      update('tts_provider', provider)
+      Alert.alert('Voz actualizada', `Aria responderá con la voz de ${ttsLabel(provider)}.`)
+    } catch {
+      setTtsSelected(prev) // revertir
+      Alert.alert('Error', 'No se pudo cambiar la voz. Inténtalo de nuevo.')
+    } finally {
+      setTtsSaving(null)
+    }
+  }
+
+  // Refresca + feedback cuando volvemos por el deep link ai-companion://oauth?google=connected
+  useEffect(() => {
+    if (googleConnected > 0) {
+      loadIntegrations().then(() => {
+        Alert.alert('Google conectado', 'Tu cuenta de Google quedó conectada correctamente.')
+      })
+    }
+  }, [googleConnected, loadIntegrations])
+
+  const handleConnectGoogle = async () => {
+    setGoogleLoading(true)
+    try {
+      const { data } = await api.get('/integrations/google/connect', { params: { return: 'app' } })
+      if (data?.url) {
+        await Linking.openURL(data.url)
+      } else {
+        Alert.alert('Error', 'No se pudo obtener la URL de conexión de Google.')
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo iniciar la conexión con Google. Inténtalo de nuevo.')
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
+
+  const handleDisconnectGoogle = () => {
+    Alert.alert('Desconectar Google', '¿Seguro que quieres desconectar tu cuenta de Google?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Desconectar',
+        style: 'destructive',
+        onPress: async () => {
+          setGoogleLoading(true)
+          try {
+            await api.delete('/integrations/google')
+            await loadIntegrations()
+          } catch {
+            Alert.alert('Error', 'No se pudo desconectar la cuenta.')
+          } finally {
+            setGoogleLoading(false)
+          }
+        },
+      },
+    ])
+  }
 
   useEffect(() => {
     api.get('/settings').then(({ data }) => { if (data) setSettings(data) }).catch(() => {})
@@ -240,6 +359,50 @@ export default function SettingsScreen() {
           </View>
         )}
 
+        {/* Voz de Aria — proveedor de TTS neural */}
+        {ttsLoaded && ttsProviders.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Voz de Aria</Text>
+            <Text style={styles.rowDesc}>
+              Elige con qué voz neural responde Aria.
+            </Text>
+
+            {ttsProviders.length === 1 ? (
+              <View style={[styles.row, { marginTop: 4, backgroundColor: C.surface2, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.border }]}>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowLabel}>{ttsLabel(ttsProviders[0])}</Text>
+                  <Text style={styles.rowDesc}>Único proveedor de voz disponible</Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={18} color={C.green} />
+              </View>
+            ) : (
+              ttsProviders.map((p) => {
+                const active = p === currentTts
+                return (
+                  <TouchableOpacity
+                    key={p}
+                    style={[styles.row, { marginTop: 4, backgroundColor: active ? C.primaryMuted : C.surface2, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: active ? C.primary : C.border, opacity: ttsSaving && ttsSaving !== p ? 0.6 : 1 }]}
+                    onPress={() => handleSelectTts(p)}
+                    disabled={!!ttsSaving}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.rowText}>
+                      <Text style={[styles.rowLabel, active && { color: C.primary }]}>{ttsLabel(p)}</Text>
+                    </View>
+                    {ttsSaving === p ? (
+                      <Text style={[styles.rowDesc, { color: C.primary }]}>Guardando…</Text>
+                    ) : active ? (
+                      <Ionicons name="checkmark-circle" size={18} color={C.primary} />
+                    ) : (
+                      <Ionicons name="ellipse-outline" size={18} color={C.textSecondary} />
+                    )}
+                  </TouchableOpacity>
+                )
+              })
+            )}
+          </View>
+        )}
+
         {/* Control del dispositivo */}
         {deviceControl.available && (
           <View style={styles.section}>
@@ -335,6 +498,54 @@ export default function SettingsScreen() {
             </View>
           </View>
         )}
+
+        {/* Integraciones */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Integraciones</Text>
+          <Text style={styles.rowDesc}>
+            Conecta tu Google Calendar y Gmail para que Aria use tu agenda y correos en el briefing y las respuestas.
+          </Text>
+
+          {google?.connected ? (
+            <>
+              <View style={[styles.row, { marginTop: 4, backgroundColor: C.surface2, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.border }]}>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowLabel}>{google.account_email ?? 'Cuenta de Google'}</Text>
+                  <Text style={[styles.rowDesc, { color: google.expired ? '#f59e0b' : C.green }]}>
+                    {google.expired ? '⚠ Token expirado · vuelve a conectar' : '✓ Conectado · Calendar y Gmail'}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={google.expired ? 'alert-circle' : 'checkmark-circle'}
+                  size={18}
+                  color={google.expired ? '#f59e0b' : C.green}
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.row, { justifyContent: 'center', backgroundColor: '#1a0a0a', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#3d1515', opacity: googleLoading ? 0.6 : 1 }]}
+                onPress={handleDisconnectGoogle}
+                disabled={googleLoading}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="unlink-outline" size={16} color={C.red} />
+                <Text style={[styles.rowLabel, { color: C.red, marginLeft: 6 }]}>Desconectar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={[styles.row, { marginTop: 4, backgroundColor: C.surface2, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.border, opacity: googleLoading ? 0.6 : 1 }]}
+              onPress={handleConnectGoogle}
+              disabled={googleLoading}
+              activeOpacity={0.75}
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>{googleLoading ? 'Abriendo Google…' : 'Conectar cuenta de Google'}</Text>
+                <Text style={styles.rowDesc}>Calendar y Gmail · autoriza directamente en Google</Text>
+              </View>
+              <Ionicons name="logo-google" size={16} color={C.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Briefing diario */}
         <View style={styles.section}>
