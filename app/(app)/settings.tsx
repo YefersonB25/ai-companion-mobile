@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   View, Text, ScrollView, StyleSheet,
   Switch, Alert, TouchableOpacity, TextInput, StatusBar, Linking,
+  Platform, PermissionsAndroid,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -42,6 +43,7 @@ export default function SettingsScreen() {
   const [hasNotifAccess, setHasNotifAccess]   = useState(false)
   const [canWriteSettings, setCanWrite]       = useState(false)
   const [drivingMode, setDrivingModeState]    = useState(false)
+  const [autoDriving, setAutoDrivingState]    = useState(false)
   const [google, setGoogle]            = useState<Integration | null>(null)
   const [googleLoading, setGoogleLoading]     = useState(false)
   const [ttsProviders, setTtsProviders]       = useState<string[]>([])
@@ -164,6 +166,7 @@ export default function SettingsScreen() {
       deviceControl.canWriteSettings().then(setCanWrite)
     }
     if (wakeWord.available) wakeWord.isDrivingMode().then(setDrivingModeState)
+    if (wakeWord.available) wakeWord.isAutoDriving().then(setAutoDrivingState)
   }, [])
 
   const setTtsSpeed = async (v: number) => { setTtsSpeedState(v); await wakeWord.setTtsSpeed(v) }
@@ -172,6 +175,36 @@ export default function SettingsScreen() {
   const toggleDrivingMode = async (on: boolean) => {
     setDrivingModeState(on)
     await wakeWord.setDrivingMode(on)
+  }
+
+  const toggleAutoDriving = async (on: boolean) => {
+    if (!on) {
+      setAutoDrivingState(false)
+      await wakeWord.setAutoDriving(false)
+      return
+    }
+    // Activar: pedir permiso de reconocimiento de actividad (solo Android runtime)
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
+        {
+          title: 'Detección de conducción',
+          message: 'Aria necesita reconocer tu actividad física para detectar cuándo vas conduciendo.',
+          buttonPositive: 'Permitir',
+          buttonNegative: 'Cancelar',
+        },
+      )
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        setAutoDrivingState(false)
+        Alert.alert(
+          'Permiso necesario',
+          'Sin el permiso de reconocimiento de actividad no se puede detectar automáticamente la conducción.',
+        )
+        return
+      }
+    }
+    setAutoDrivingState(true)
+    await wakeWord.setAutoDriving(true)
   }
 
   const toggleWakeWord = async (on: boolean) => {
@@ -422,6 +455,20 @@ export default function SettingsScreen() {
                 onValueChange={toggleDrivingMode}
                 trackColor={{ false: C.surface, true: C.primaryMuted }}
                 thumbColor={drivingMode ? C.primary : C.textSecondary}
+              />
+            </View>
+
+            {/* A5-01: detección automática de conducción */}
+            <View style={[styles.row, { marginTop: 10 }]}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowLabel}>Detección automática de conducción</Text>
+                <Text style={styles.rowDesc}>Aria activará el modo manos libres automáticamente cuando detecte que vas conduciendo.</Text>
+              </View>
+              <Switch
+                value={autoDriving}
+                onValueChange={toggleAutoDriving}
+                trackColor={{ false: C.surface, true: C.primaryMuted }}
+                thumbColor={autoDriving ? C.primary : C.textSecondary}
               />
             </View>
 

@@ -30,6 +30,8 @@ interface WakeWordNative {
   requestOverlayPermission(): Promise<null>
   setDrivingMode(on: boolean): Promise<boolean>
   isDrivingMode(): Promise<boolean>
+  setAutoDriving(on: boolean): Promise<boolean>
+  isAutoDriving(): Promise<boolean>
 }
 
 export const wakeWord = {
@@ -103,5 +105,14 @@ export const wakeWord = {
   async isDrivingMode(): Promise<boolean> {
     if (!Native) return false
     try { return await Native.isDrivingMode() } catch { return false }
+  },
+
+  async setAutoDriving(on: boolean): Promise<void> {
+    if (!Native) return
+    try { await Native.setAutoDriving(on) } catch { /* no-op */ }
+  },
+  async isAutoDriving(): Promise<boolean> {
+    if (!Native) return false
+    try { return await Native.isAutoDriving() } catch { return false }
   },
 }
