@@ -14,12 +14,12 @@ import UpdateModal from '@/components/ui/UpdateModal'
 import { useVoiceTrigger } from '@/store/voiceTrigger'
 import { useOAuthReturn } from '@/store/oauthReturn'
 import { wakeWord } from '@/lib/wakeWord'
-import api from '@/lib/api'
+import { apiClient } from '@/lib/api'
 import '../global.css'
 
 // Initialize @aria/core stores with mobile-specific configuration
 initializeAuthStore({
-  api,
+  api: apiClient,
   onTokenChange: async (token) => {
     if (token) {
       await wakeWord.setAuthToken(token)
@@ -28,7 +28,7 @@ initializeAuthStore({
 })
 
 initializeChatStore({
-  api,
+  api: apiClient,
   channel: 'mobile',
 })
 
