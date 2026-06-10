@@ -6,3 +6,4 @@
  */
 
 export { useAuthStore, initializeAuthStore } from '@aria/core'
+export { initializeChatStore, useChatStore } from '@/store/chat'

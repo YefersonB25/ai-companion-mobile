@@ -3,7 +3,7 @@
   "version": "1.0.37",
   "main": "expo-router/entry",
   "dependencies": {
-    "@aria/core": "workspace:*",
+    "@aria/core": "file:../packages/core",
     "@expo/metro-runtime": "~56.0.13",
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "^3.1.1",
