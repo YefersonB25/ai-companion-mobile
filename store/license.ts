@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import api from '@/lib/api'
-import { LicenseStatus } from '@/types'
+import { LicenseStatus } from '@aria/core'
 
 interface LicenseState {
   status: LicenseStatus | null

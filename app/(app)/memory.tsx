@@ -6,7 +6,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import api from '@/lib/api'
-import { MemoryNode } from '@/types'
+import { MemoryNode } from '@aria/core'
 
 // ---------------------------------------------------------------------------
 // Constants

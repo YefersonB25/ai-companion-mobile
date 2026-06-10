@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useChatStore } from '@/store/chat'
-import { Conversation } from '@/types'
+import { Conversation } from '@aria/core'
 import { useRouter } from 'expo-router'
 import { C } from '@/lib/theme'
 import api from '@/lib/api'

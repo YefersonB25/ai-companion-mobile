@@ -13,6 +13,8 @@ import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
 import { C } from '@/lib/theme'
 import { useVoiceTrigger } from '@/store/voiceTrigger'
+import AnimatedWaveform from '@/components/ui/AnimatedWaveform'
+import { playWakeWordBeep } from '@/lib/wakeWordSound'
 
 interface Props {
   onSend: (text: string, opts?: { viaVoice?: boolean; imageUri?: string | null }) => void
@@ -20,13 +22,37 @@ interface Props {
   isSpeaking?: boolean
   noProvider?: boolean
   onConfigureProvider?: () => void
+  onRecordingStateChange?: (recording: boolean, duration: number, interim: string) => void
 }
 
-export default function ChatInput({ onSend, isStreaming, isSpeaking = false, noProvider = false, onConfigureProvider }: Props) {
+export default function ChatInput({ onSend, isStreaming, isSpeaking = false, noProvider = false, onConfigureProvider, onRecordingStateChange }: Props) {
   const [text, setText] = useState('')
   const [recording, setRecording] = useState(false)
   const [interimText, setInterimText] = useState('')
   const [pendingImage, setPendingImage] = useState<string | null>(null)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const recordingStartTimeRef = useRef<number | null>(null)
+
+  // Track recording duration
+  useEffect(() => {
+    if (recording) {
+      recordingStartTimeRef.current = Date.now()
+      const interval = setInterval(() => {
+        if (recordingStartTimeRef.current) {
+          setRecordingDuration(Date.now() - recordingStartTimeRef.current)
+        }
+      }, 100)
+      return () => clearInterval(interval)
+    } else {
+      recordingStartTimeRef.current = null
+      setRecordingDuration(0)
+    }
+  }, [recording])
+
+  // Notify parent of recording state changes
+  useEffect(() => {
+    onRecordingStateChange?.(recording, recordingDuration, interimText)
+  }, [recording, recordingDuration, interimText, onRecordingStateChange])
 
   // Animated pulse for "Aria is speaking"
   const pulseAnim = useRef(new Animated.Value(1)).current
@@ -106,6 +132,8 @@ export default function ChatInput({ onSend, isStreaming, isSpeaking = false, noP
   useEffect(() => {
     if (voicePending && !recording && !isStreaming) {
       clearVoiceTrigger()
+      // Play wake word detection sound
+      playWakeWordBeep()
       // Small delay so screen mounts fully before mic activates
       setTimeout(startRecording, 350)
     }
@@ -113,8 +141,12 @@ export default function ChatInput({ onSend, isStreaming, isSpeaking = false, noP
   }, [voicePending, isStreaming])
 
   const displayText  = recording ? interimText : text
-  const placeholder  = recording ? 'Escuchando...' : 'Escribe o habla...'
+  const placeholder  = recording ? '🎤 Escuchando...' : 'Escribe o habla...'
   const canSend      = !recording && (!!text.trim() || !!pendingImage) && !isStreaming
+
+  // Format duration for display
+  const recordingSeconds = Math.floor(recordingDuration / 1000)
+  const durationDisplay = recordingSeconds > 0 ? ` (${recordingSeconds}s)` : ''
 
   // If no provider configured, show a blocking banner instead of the input
   if (noProvider) {
@@ -173,10 +205,11 @@ export default function ChatInput({ onSend, isStreaming, isSpeaking = false, noP
               disabled={isStreaming}
               activeOpacity={0.75}
             >
-              {recording
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Ionicons name="mic-outline" size={18} color={recording ? '#fff' : isSpeaking ? C.primary : C.textSecondary} />
-              }
+              {recording ? (
+                <AnimatedWaveform isRecording={recording} recordingDuration={recordingDuration} variant="compact" />
+              ) : (
+                <Ionicons name="mic-outline" size={18} color={recording ? '#fff' : isSpeaking ? C.primary : C.textSecondary} />
+              )}
             </TouchableOpacity>
           </Animated.View>
 
@@ -184,7 +217,7 @@ export default function ChatInput({ onSend, isStreaming, isSpeaking = false, noP
             style={styles.input}
             value={displayText}
             onChangeText={recording ? undefined : setText}
-            placeholder={placeholder}
+            placeholder={`${placeholder}${recording ? durationDisplay : ''}`}
             placeholderTextColor={recording ? C.primary : C.textSecondary}
             multiline
             maxLength={4000}

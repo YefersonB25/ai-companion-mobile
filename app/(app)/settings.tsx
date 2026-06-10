@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
 import api from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
-import { UserSetting } from '@/types'
+import { UserSetting } from '@aria/core'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { C } from '@/lib/theme'
@@ -397,12 +397,12 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            {/* Barge-in (experimental) */}
+            {/* Barge-in */}
             <View style={[styles.row, { marginTop: 14 }]}>
               <View style={styles.rowText}>
-                <Text style={styles.rowLabel}>Interrumpir a Aria hablando (experimental)</Text>
+                <Text style={styles.rowLabel}>Interrumpir a Aria hablando</Text>
                 <Text style={styles.rowDesc}>
-                  Puede cortar respuestas largas si tu micrófono capta la voz de Aria; actívalo solo si quieres probarlo.
+                  Mientras Aria habla, di "Hey Aria" u "Oye Aria" para cortarla y darle una nueva orden.
                 </Text>
               </View>
               <Switch

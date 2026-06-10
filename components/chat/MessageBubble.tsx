@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Image } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { Message } from '@/types'
+import { Message } from '@aria/core'
 import { C } from '@/lib/theme'
 
 interface Props {

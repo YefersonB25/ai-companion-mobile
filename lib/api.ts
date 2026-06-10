@@ -1,24 +1,32 @@
-import axios from 'axios'
+/**
+ * Mobile API Client
+ *
+ * Creates an instance of @aria/core ApiClient with mobile-specific config.
+ * Handles SecureStore token persistence.
+ */
+
 import * as SecureStore from 'expo-secure-store'
+import { createApiClient } from '@aria/core'
 import { Platform } from 'react-native'
 
 const API_URL = Platform.OS === 'web'
   ? 'http://ai-companion.test/api'
   : 'https://ai.omnirepair.online/api'
 
-const api = axios.create({
+/**
+ * Mobile API client with SecureStore token management
+ */
+export const api = createApiClient({
   baseURL: API_URL,
-  headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+  getToken: () => SecureStore.getItemAsync('token'),
+  setToken: (token) => SecureStore.setItemAsync('token', token),
   timeout: 30000,
 })
 
-api.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
-
-export const getStreamUrl = (path: string) =>
+/**
+ * Get streaming URL for SSE EventSource
+ */
+export const getStreamUrl = (path: string): string =>
   `${API_URL}${path}`
 
 export default api

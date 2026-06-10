@@ -9,11 +9,15 @@ import { textForTts } from '@/lib/textForTts'
 import { useRouter, useFocusEffect, Link } from 'expo-router'
 import { useCallback } from 'react'
 import { useChatStore } from '@/store/chat'
+import { useChatTtsExtension } from '@/store/chat'
 import { useAuthStore } from '@/store/auth'
 import MessageBubble from '@/components/chat/MessageBubble'
 import ChatInput from '@/components/chat/ChatInput'
-import { Message } from '@/types'
-import { AiProvider } from '@/types'
+import VoiceListeningOverlay from '@/components/ui/VoiceListeningOverlay'
+import ErrorBanner from '@/components/ui/ErrorBanner'
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
+import { Message, AiProvider } from '@aria/core'
+import { ErrorMessage, parseApiError, ErrorCode, getErrorMessage } from '@/lib/errorMessages'
 import api from '@/lib/api'
 import { C } from '@/lib/theme'
 import { fetchTodayBriefing, consumeBriefingPending } from '@/lib/localNotifications'
@@ -33,6 +37,8 @@ export default function ChatScreen() {
   const [providersChecked, setProvidersChecked] = useState(false)
   const [ttsEnabled, setTtsEnabled] = useState(true)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [voiceOverlay, setVoiceOverlay] = useState({ show: false, duration: 0, interim: '' })
+  const [errorMessage, setErrorMessage] = useState<ErrorMessage | null>(null)
   const listRef = useRef<FlatList>(null)
   const wasStreaming = useRef(false)
 
@@ -111,6 +117,7 @@ export default function ChatScreen() {
   const handleSend = async (text: string, opts?: { viaVoice?: boolean; imageUri?: string | null }) => {
     Speech.stop()
     setIsSpeaking(false)
+
     if (!activeConversation) await createConversation()
 
     if (opts?.imageUri) {
@@ -125,7 +132,9 @@ export default function ChatScreen() {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
       } catch (e) {
-        console.warn('Image upload failed, falling back to text only', e)
+        const errorCode = parseApiError(e)
+        setErrorMessage(getErrorMessage(errorCode))
+        // Fallback: send text only
         sendMessage(text, opts)
       }
     } else {
@@ -150,6 +159,12 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+
+      {/* Error Banner */}
+      <ErrorBanner
+        error={errorMessage}
+        onDismiss={() => setErrorMessage(null)}
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -254,6 +269,19 @@ export default function ChatScreen() {
         isSpeaking={isSpeaking}
         noProvider={providersChecked && !activeProvider}
         onConfigureProvider={() => router.push('/(app)/providers' as never)}
+        onRecordingStateChange={(recording, duration, interim) => {
+          setVoiceOverlay({ show: recording, duration, interim })
+        }}
+      />
+
+      <VoiceListeningOverlay
+        visible={voiceOverlay.show}
+        recordingDuration={voiceOverlay.duration}
+        interimText={voiceOverlay.interim}
+        onCancel={() => {
+          ExpoSpeechRecognitionModule.abort()
+          setVoiceOverlay({ show: false, duration: 0, interim: '' })
+        }}
       />
     </SafeAreaView>
   )

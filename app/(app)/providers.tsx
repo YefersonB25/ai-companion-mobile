@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import api from '@/lib/api'
-import { AiProvider } from '@/types'
+import { AiProvider } from '@aria/core'
 import Button from '@/components/ui/Button'
 
 const PROVIDER_KEY_URLS: Record<string, { url: string; label: string; isFree: boolean }> = {

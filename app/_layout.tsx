@@ -1,28 +1,41 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Stack, useRouter } from 'expo-router'
 import { Linking } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import * as Notifications from 'expo-notifications'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useAuthStore } from '@/store/auth'
+import * as SecureStore from 'expo-secure-store'
+import { useAuthStore, useOnboarding, initializeAuthStore, initializeChatStore } from '@/store/auth'
 import { syncDeviceToken } from '@/lib/notifications'
 import { useAppUpdate } from '@/lib/useAppUpdate'
 import { syncDailyBriefing, setBriefingPending } from '@/lib/localNotifications'
 import UpdateModal from '@/components/ui/UpdateModal'
-import OnboardingModal from '@/components/ui/OnboardingModal'
 import { useVoiceTrigger } from '@/store/voiceTrigger'
 import { useOAuthReturn } from '@/store/oauthReturn'
 import { wakeWord } from '@/lib/wakeWord'
+import api from '@/lib/api'
 import '../global.css'
 
-const ONBOARDING_KEY = 'aria_onboarding_done'
+// Initialize @aria/core stores with mobile-specific configuration
+initializeAuthStore({
+  api,
+  onTokenChange: async (token) => {
+    if (token) {
+      await wakeWord.setAuthToken(token)
+    }
+  },
+})
+
+initializeChatStore({
+  api,
+  channel: 'mobile',
+})
 
 export default function RootLayout() {
   const { hydrate, token } = useAuthStore()
   const router = useRouter()
   const { updateInfo, dismiss } = useAppUpdate()
-  const [showOnboarding, setShowOnboarding] = useState(false)
+  const { completed } = useOnboarding()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const notifListener = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,17 +43,13 @@ export default function RootLayout() {
 
   useEffect(() => { hydrate() }, [hydrate])
 
-  // Mostrar onboarding la primera vez que el usuario usa la app
+  // Redirigir a onboarding si no está completado (solo si está autenticado)
   useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_KEY).then(done => {
-      if (!done) setShowOnboarding(true)
-    })
-  }, [])
+    if (token && !completed) {
+      router.replace('/onboarding/welcome' as never)
+    }
+  }, [token, completed, router])
 
-  const closeOnboarding = async () => {
-    await AsyncStorage.setItem(ONBOARDING_KEY, '1')
-    setShowOnboarding(false)
-  }
 
   // Register push token + schedule daily briefing + restart wake word if enabled
   useEffect(() => {
@@ -108,7 +117,6 @@ export default function RootLayout() {
       {updateInfo && (
         <UpdateModal info={updateInfo} onDismiss={dismiss} />
       )}
-      <OnboardingModal visible={showOnboarding} onClose={closeOnboarding} />
     </GestureHandlerRootView>
   )
 }

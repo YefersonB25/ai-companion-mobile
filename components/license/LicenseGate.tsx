@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '@/store/auth'
 import { useLicenseStore } from '@/store/license'
-import type { LicenseStatus } from '@/types'
+import type { LicenseStatus } from '@aria/core'
 import api from '@/lib/api'
 import { C } from '@/lib/theme'
 
